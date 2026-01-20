@@ -41,6 +41,15 @@ const VoterVerification = () => {
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Wait for video to actually start playing
+        await new Promise<void>((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current?.play();
+              resolve();
+            };
+          }
+        });
         setCameraActive(true);
       }
     } catch (error) {
