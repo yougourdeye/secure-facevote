@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { 
-  ArrowLeft, Calendar, Clock, Plus, Trash2, Upload, User, Save, Vote
+  ArrowLeft, Calendar, Clock, Plus, Trash2, Upload, User, Save, Vote, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,23 +9,37 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Candidate {
   id: string;
   name: string;
   party: string;
+  photoFile: File | null;
+  photoPreview: string | null;
 }
 
 const CreateElection = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([
-    { id: "1", name: "", party: "" }
+    { id: "1", name: "", party: "", photoFile: null, photoPreview: null }
   ]);
+  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const addCandidate = () => {
-    setCandidates([...candidates, { id: Date.now().toString(), name: "", party: "" }]);
+    setCandidates([...candidates, { 
+      id: Date.now().toString(), 
+      name: "", 
+      party: "", 
+      photoFile: null, 
+      photoPreview: null 
+    }]);
   };
 
   const removeCandidate = (id: string) => {
@@ -34,24 +48,151 @@ const CreateElection = () => {
     }
   };
 
-  const updateCandidate = (id: string, field: keyof Candidate, value: string) => {
+  const updateCandidate = (id: string, field: keyof Candidate, value: string | File | null) => {
     setCandidates(candidates.map(c => 
       c.id === id ? { ...c, [field]: value } : c
     ));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePhotoSelect = (candidateId: string, file: File) => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image must be less than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+
+    setCandidates(candidates.map(c => 
+      c.id === candidateId 
+        ? { ...c, photoFile: file, photoPreview: previewUrl } 
+        : c
+    ));
+  };
+
+  const removePhoto = (candidateId: string) => {
+    setCandidates(candidates.map(c => 
+      c.id === candidateId 
+        ? { ...c, photoFile: null, photoPreview: null } 
+        : c
+    ));
+  };
+
+  const uploadCandidatePhoto = async (file: File, electionId: string, candidateName: string): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${electionId}/${Date.now()}-${candidateName.replace(/\s+/g, '-').toLowerCase()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('candidate-photos')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('candidate-photos')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     
-    setTimeout(() => {
-      setIsSubmitting(false);
+    // Validation
+    if (!title.trim()) {
+      toast({ title: "Error", description: "Please enter an election title", variant: "destructive" });
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      toast({ title: "Error", description: "Please set start and end dates", variant: "destructive" });
+      return;
+    }
+
+    if (new Date(endDate) <= new Date(startDate)) {
+      toast({ title: "Error", description: "End date must be after start date", variant: "destructive" });
+      return;
+    }
+
+    const validCandidates = candidates.filter(c => c.name.trim());
+    if (validCandidates.length < 2) {
+      toast({ title: "Error", description: "Please add at least 2 candidates", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Create election
+      const { data: election, error: electionError } = await supabase
+        .from('elections')
+        .insert({
+          title: title.trim(),
+          description: description.trim() || null,
+          start_time: new Date(startDate).toISOString(),
+          end_time: new Date(endDate).toISOString(),
+          status: 'draft',
+        })
+        .select()
+        .single();
+
+      if (electionError) throw electionError;
+
+      // Upload photos and create candidates
+      for (const candidate of validCandidates) {
+        let photoUrl: string | null = null;
+
+        if (candidate.photoFile) {
+          photoUrl = await uploadCandidatePhoto(candidate.photoFile, election.id, candidate.name);
+        }
+
+        const { error: candidateError } = await supabase
+          .from('candidates')
+          .insert({
+            election_id: election.id,
+            name: candidate.name.trim(),
+            party: candidate.party.trim() || null,
+            photo_url: photoUrl,
+          });
+
+        if (candidateError) {
+          console.error('Candidate error:', candidateError);
+        }
+      }
+
       toast({
         title: "Election Created",
         description: "Your election has been successfully created.",
       });
       navigate('/admin/dashboard');
-    }, 1500);
+    } catch (error) {
+      console.error('Error creating election:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create election. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -94,6 +235,8 @@ const CreateElection = () => {
                   id="title"
                   placeholder="e.g., Presidential Election 2024"
                   className="h-12"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   required
                 />
               </div>
@@ -104,6 +247,8 @@ const CreateElection = () => {
                   id="description"
                   placeholder="Provide details about this election..."
                   className="min-h-[100px] resize-none"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
 
@@ -116,6 +261,8 @@ const CreateElection = () => {
                       id="startDate"
                       type="datetime-local"
                       className="pl-12 h-12"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
                       required
                     />
                   </div>
@@ -129,6 +276,8 @@ const CreateElection = () => {
                       id="endDate"
                       type="datetime-local"
                       className="pl-12 h-12"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
                       required
                     />
                   </div>
@@ -158,11 +307,45 @@ const CreateElection = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  <div className="w-16 h-16 bg-muted rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-muted/80 transition-colors group">
-                    <div className="text-center">
-                      <Upload className="w-5 h-5 text-muted-foreground group-hover:text-foreground mx-auto" />
-                      <span className="text-[10px] text-muted-foreground">Photo</span>
-                    </div>
+                  {/* Photo Upload */}
+                  <div className="relative flex-shrink-0">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={(el) => { fileInputRefs.current[candidate.id] = el; }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handlePhotoSelect(candidate.id, file);
+                      }}
+                    />
+                    {candidate.photoPreview ? (
+                      <div className="relative w-16 h-16">
+                        <img 
+                          src={candidate.photoPreview} 
+                          alt="Candidate preview" 
+                          className="w-16 h-16 rounded-xl object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(candidate.id)}
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-white rounded-full flex items-center justify-center hover:bg-destructive/80"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRefs.current[candidate.id]?.click()}
+                        className="w-16 h-16 bg-muted rounded-xl flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors group border-2 border-dashed border-border hover:border-primary"
+                      >
+                        <div className="text-center">
+                          <Upload className="w-5 h-5 text-muted-foreground group-hover:text-primary mx-auto" />
+                          <span className="text-[10px] text-muted-foreground">Photo</span>
+                        </div>
+                      </button>
+                    )}
                   </div>
                   
                   <div className="flex-1 grid md:grid-cols-2 gap-4">
@@ -203,6 +386,10 @@ const CreateElection = () => {
                 </motion.div>
               ))}
             </div>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Add at least 2 candidates. Photos are optional but recommended.
+            </p>
           </div>
 
           {/* Actions */}
