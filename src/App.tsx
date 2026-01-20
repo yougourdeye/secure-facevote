@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import VoterRegistration from "./pages/VoterRegistration";
 import VoterVerification from "./pages/VoterVerification";
 import VotingBallot from "./pages/VotingBallot";
 import CreateElection from "./pages/CreateElection";
@@ -22,6 +23,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/register" element={<VoterRegistration />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/elections/new" element={<CreateElection />} />

@@ -1,16 +1,22 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, CheckCircle, XCircle, AlertTriangle, Vote, RefreshCw, Shield } from "lucide-react";
+import { Camera, CheckCircle, XCircle, AlertTriangle, Vote, RefreshCw, Shield, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-type VerificationStatus = "idle" | "scanning" | "success" | "failed" | "already-voted";
+type VerificationStatus = "idle" | "scanning" | "success" | "failed" | "already-voted" | "not-registered";
 
 const VoterVerification = () => {
   const [status, setStatus] = useState<VerificationStatus>("idle");
   const [cameraActive, setCameraActive] = useState(false);
+  const [verifiedVoterId, setVerifiedVoterId] = useState<string | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const startCamera = useCallback(async () => {
     try {
@@ -23,8 +29,13 @@ const VoterVerification = () => {
       }
     } catch (error) {
       console.error("Camera access denied:", error);
+      toast({
+        title: "Camera Required",
+        description: "Please allow camera access to verify your identity.",
+        variant: "destructive",
+      });
     }
-  }, []);
+  }, [toast]);
 
   const stopCamera = useCallback(() => {
     if (videoRef.current?.srcObject) {
@@ -34,27 +45,103 @@ const VoterVerification = () => {
     }
   }, []);
 
-  const handleVerify = () => {
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
+
+  const handleVerify = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
     setStatus("scanning");
     
-    // Simulate face verification process
-    setTimeout(() => {
-      // Random result for demo - in real app, this would call the face recognition API
-      const results: VerificationStatus[] = ["success", "failed", "already-voted"];
-      const randomResult = results[Math.floor(Math.random() * 3)];
-      setStatus(randomResult);
-      
-      if (randomResult === "success") {
-        setTimeout(() => {
-          stopCamera();
-          navigate('/vote/ballot');
-        }, 2000);
+    // Capture current frame
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    
+    // For demo, we'll do a simple check - in production you'd use a face recognition API
+    // Here we'll check if there are registered voters and simulate matching
+    try {
+      // Get all registered voters with face images
+      const { data: voters, error } = await supabase
+        .from('voters')
+        .select('*')
+        .eq('face_registered', true);
+
+      if (error) throw error;
+
+      if (!voters || voters.length === 0) {
+        setStatus("not-registered");
+        return;
       }
-    }, 3000);
+
+      // For demo purposes, we'll pick a random voter to simulate face matching
+      // In production, you would send the captured image to a face recognition API
+      const randomIndex = Math.floor(Math.random() * voters.length);
+      const matchedVoter = voters[randomIndex];
+
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Check if voter has already voted in the active election
+      const { data: activeElection } = await supabase
+        .from('elections')
+        .select('id')
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (activeElection) {
+        const { data: existingVote } = await supabase
+          .from('votes')
+          .select('id')
+          .eq('voter_id', matchedVoter.id)
+          .eq('election_id', activeElection.id)
+          .maybeSingle();
+
+        if (existingVote) {
+          setStatus("already-voted");
+          return;
+        }
+      }
+
+      // Create verification session
+      const token = crypto.randomUUID();
+      
+      if (activeElection) {
+        await supabase.from('voter_verifications').insert({
+          voter_id: matchedVoter.id,
+          election_id: activeElection.id,
+          session_token: token,
+          verification_status: 'success'
+        });
+      }
+
+      setVerifiedVoterId(matchedVoter.id);
+      setSessionToken(token);
+      setStatus("success");
+
+      // Redirect to ballot after short delay
+      setTimeout(() => {
+        stopCamera();
+        navigate('/vote/ballot', { state: { voterId: matchedVoter.id, sessionToken: token } });
+      }, 2000);
+
+    } catch (error) {
+      console.error("Verification error:", error);
+      setStatus("failed");
+    }
   };
 
   const handleRetry = () => {
     setStatus("idle");
+    setVerifiedVoterId(null);
+    setSessionToken(null);
   };
 
   const renderStatusContent = () => {
@@ -125,6 +212,24 @@ const VoterVerification = () => {
             </div>
           </motion.div>
         );
+      case "not-registered":
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex items-center justify-center bg-navy/90 rounded-3xl"
+          >
+            <div className="text-center">
+              <UserPlus className="w-20 h-20 text-teal mx-auto" />
+              <p className="text-white font-display font-bold text-2xl mt-4">No Voters Registered</p>
+              <p className="text-white/80 mt-2 mb-6">Please register first before voting</p>
+              <Button variant="hero" onClick={() => navigate('/register')}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Register Now
+              </Button>
+            </div>
+          </motion.div>
+        );
       default:
         return null;
     }
@@ -189,6 +294,7 @@ const VoterVerification = () => {
                 <p className="text-xs mt-1">Click the button below to start</p>
               </div>
             )}
+            <canvas ref={canvasRef} className="hidden" />
 
             {/* Status overlays */}
             <AnimatePresence>
@@ -209,6 +315,16 @@ const VoterVerification = () => {
                 Verify My Identity
               </Button>
             ) : null}
+
+            <Button 
+              variant="ghost" 
+              size="lg" 
+              className="w-full text-muted-foreground" 
+              onClick={() => navigate('/register')}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Not registered? Register here
+            </Button>
           </div>
 
           {/* Security notice */}
