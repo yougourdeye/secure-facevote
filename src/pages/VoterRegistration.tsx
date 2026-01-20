@@ -1,12 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Camera, CheckCircle, User, Vote, Shield, ArrowRight, Upload, IdCard } from "lucide-react";
+import { Camera, CheckCircle, User, Vote, Shield, ArrowRight, Upload, IdCard, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useFaceRecognition, descriptorToArray } from "@/hooks/useFaceRecognition";
 
 const VoterRegistration = () => {
   const [step, setStep] = useState<"info" | "face" | "success">("info");
@@ -15,10 +16,20 @@ const VoterRegistration = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [faceStatus, setFaceStatus] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  const { isLoaded, isLoading, loadModels, detectFace, getFaceDescriptor } = useFaceRecognition();
+
+  // Load face recognition models on mount
+  useEffect(() => {
+    loadModels();
+  }, [loadModels]);
 
   const startCamera = useCallback(async () => {
     try {
@@ -40,6 +51,10 @@ const VoterRegistration = () => {
   }, [toast]);
 
   const stopCamera = useCallback(() => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
     if (videoRef.current?.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
       tracks.forEach(track => track.stop());
@@ -47,30 +62,72 @@ const VoterRegistration = () => {
     }
   }, []);
 
+  // Real-time face detection
+  useEffect(() => {
+    if (cameraActive && isLoaded && videoRef.current && !capturedImage) {
+      detectionIntervalRef.current = setInterval(async () => {
+        if (videoRef.current) {
+          try {
+            const detection = await detectFace(videoRef.current);
+            if (detection) {
+              setFaceDetected(true);
+              setFaceStatus("Face detected - Ready to capture");
+            } else {
+              setFaceDetected(false);
+              setFaceStatus("No face detected - Please center your face");
+            }
+          } catch (e) {
+            setFaceDetected(false);
+            setFaceStatus("Position your face in the frame");
+          }
+        }
+      }, 500);
+    }
+
+    return () => {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+      }
+    };
+  }, [cameraActive, isLoaded, detectFace, capturedImage]);
+
   useEffect(() => {
     return () => {
       stopCamera();
     };
   }, [stopCamera]);
 
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-        setCapturedImage(imageData);
-        stopCamera();
-      }
+  const capturePhoto = async () => {
+    if (!videoRef.current || !canvasRef.current || !isLoaded) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    
+    // Verify face is still detected
+    const descriptor = await getFaceDescriptor(canvas);
+    if (!descriptor) {
+      toast({
+        title: "No Face Detected",
+        description: "Please ensure your face is clearly visible and try again.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    setCapturedImage(imageData);
+    stopCamera();
   };
 
   const retakePhoto = () => {
     setCapturedImage(null);
+    setFaceDetected(false);
+    setFaceStatus("");
     startCamera();
   };
 
@@ -98,11 +155,29 @@ const VoterRegistration = () => {
   };
 
   const handleFinalSubmit = async () => {
-    if (!capturedImage) return;
+    if (!capturedImage || !canvasRef.current || !isLoaded) return;
     
     setIsSubmitting(true);
     
     try {
+      // Get face descriptor from captured image
+      const tempImg = new Image();
+      tempImg.src = capturedImage;
+      await new Promise((resolve) => { tempImg.onload = resolve; });
+      
+      // Create a canvas for the image
+      const imgCanvas = document.createElement('canvas');
+      imgCanvas.width = tempImg.width;
+      imgCanvas.height = tempImg.height;
+      const imgCtx = imgCanvas.getContext('2d');
+      if (!imgCtx) throw new Error("Could not get canvas context");
+      imgCtx.drawImage(tempImg, 0, 0);
+      
+      const descriptor = await getFaceDescriptor(imgCanvas);
+      if (!descriptor) {
+        throw new Error("Could not extract face features. Please retake the photo.");
+      }
+
       // Convert base64 to blob
       const base64Response = await fetch(capturedImage);
       const blob = await base64Response.blob();
@@ -111,7 +186,7 @@ const VoterRegistration = () => {
       const fileName = `${nationalId}-${Date.now()}.jpg`;
       
       // Upload to storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('face-images')
         .upload(fileName, blob, {
           contentType: 'image/jpeg',
@@ -124,7 +199,7 @@ const VoterRegistration = () => {
         .from('face-images')
         .getPublicUrl(fileName);
 
-      // Insert voter record
+      // Insert voter record with face descriptor
       const { error: insertError } = await supabase
         .from('voters')
         .insert({
@@ -132,6 +207,7 @@ const VoterRegistration = () => {
           national_id: nationalId,
           face_image_url: urlData.publicUrl,
           face_registered: true,
+          face_descriptor: descriptorToArray(descriptor),
         });
 
       if (insertError) throw insertError;
@@ -141,7 +217,7 @@ const VoterRegistration = () => {
       console.error("Registration error:", error);
       toast({
         title: "Registration Failed",
-        description: "There was an error during registration. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error during registration. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -207,6 +283,14 @@ const VoterRegistration = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="glass-card rounded-3xl p-8 md:p-10">
+          {/* Model loading indicator */}
+          {isLoading && (
+            <div className="mb-4 p-3 bg-teal/10 rounded-lg flex items-center gap-3 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin text-teal" />
+              <span className="text-teal">Loading face recognition models...</span>
+            </div>
+          )}
+
           {/* Progress indicator */}
           <div className="flex items-center justify-center gap-4 mb-8">
             <div className={`flex items-center gap-2 ${step === "info" ? "text-teal" : "text-muted-foreground"}`}>
@@ -271,9 +355,18 @@ const VoterRegistration = () => {
                   </div>
                 </div>
 
-                <Button type="submit" variant="teal" size="lg" className="w-full">
-                  Continue to Face Capture
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                <Button type="submit" variant="teal" size="lg" className="w-full" disabled={!isLoaded}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      Continue to Face Capture
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </>
+                  )}
                 </Button>
               </form>
             </motion.div>
@@ -293,6 +386,20 @@ const VoterRegistration = () => {
                 <p className="text-muted-foreground mt-2">Look directly at the camera for best results</p>
               </div>
 
+              {/* Face detection status */}
+              {cameraActive && !capturedImage && (
+                <div className={`mb-4 p-3 rounded-lg flex items-center gap-3 text-sm ${
+                  faceDetected ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
+                }`}>
+                  {faceDetected ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  <span>{faceStatus || "Initializing face detection..."}</span>
+                </div>
+              )}
+
               {/* Camera View */}
               <div className="relative aspect-[4/3] bg-navy-dark rounded-2xl overflow-hidden mb-6">
                 {capturedImage ? (
@@ -308,7 +415,9 @@ const VoterRegistration = () => {
                     />
                     {/* Face guide overlay */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-40 h-52 border-4 border-teal/50 rounded-[40%] border-dashed" />
+                      <div className={`w-40 h-52 border-4 rounded-[40%] border-dashed transition-colors ${
+                        faceDetected ? 'border-success' : 'border-teal/50'
+                      }`} />
                     </div>
                   </>
                 ) : (
@@ -355,10 +464,10 @@ const VoterRegistration = () => {
                     size="lg" 
                     className="w-full" 
                     onClick={capturePhoto}
-                    disabled={!cameraActive}
+                    disabled={!cameraActive || !faceDetected}
                   >
                     <Camera className="w-5 h-5 mr-2" />
-                    Capture Photo
+                    {faceDetected ? "Capture Photo" : "Waiting for face..."}
                   </Button>
                 )}
 

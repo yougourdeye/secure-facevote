@@ -181,6 +181,7 @@ export type Database = {
       voters: {
         Row: {
           created_at: string
+          face_descriptor: Json | null
           face_image_url: string | null
           face_registered: boolean
           full_name: string
@@ -190,6 +191,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          face_descriptor?: Json | null
           face_image_url?: string | null
           face_registered?: boolean
           full_name: string
@@ -199,6 +201,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          face_descriptor?: Json | null
           face_image_url?: string | null
           face_registered?: boolean
           full_name?: string
