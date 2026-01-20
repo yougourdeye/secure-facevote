@@ -67,6 +67,28 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchAllData();
+
+    // Set up real-time subscription for votes
+    const votesChannel = supabase
+      .channel('votes-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'votes',
+        },
+        () => {
+          // Refetch results when votes change
+          fetchResults();
+          fetchElections();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(votesChannel);
+    };
   }, []);
 
   const fetchAllData = async () => {

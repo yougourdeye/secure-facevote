@@ -1,15 +1,19 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { format } from "date-fns";
 import { 
-  ArrowLeft, Calendar, Clock, Plus, Trash2, Upload, User, Save, Vote, X
+  ArrowLeft, Calendar, Clock, Plus, Trash2, Upload, User, Save, Vote, X, CalendarIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface Candidate {
   id: string;
@@ -25,8 +29,10 @@ const CreateElection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [startTime, setStartTime] = useState("09:00");
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [endTime, setEndTime] = useState("18:00");
   const [candidates, setCandidates] = useState<Candidate[]>([
     { id: "1", name: "", party: "", photoFile: null, photoPreview: null }
   ]);
@@ -127,8 +133,18 @@ const CreateElection = () => {
       return;
     }
 
-    if (new Date(endDate) <= new Date(startDate)) {
-      toast({ title: "Error", description: "End date must be after start date", variant: "destructive" });
+    // Combine date and time
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    
+    const startDateTime = new Date(startDate);
+    startDateTime.setHours(startHours, startMinutes, 0, 0);
+    
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(endHours, endMinutes, 0, 0);
+
+    if (endDateTime <= startDateTime) {
+      toast({ title: "Error", description: "End date/time must be after start date/time", variant: "destructive" });
       return;
     }
 
@@ -147,8 +163,8 @@ const CreateElection = () => {
         .insert({
           title: title.trim(),
           description: description.trim() || null,
-          start_time: new Date(startDate).toISOString(),
-          end_time: new Date(endDate).toISOString(),
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime.toISOString(),
           status: 'draft',
         })
         .select()
@@ -254,31 +270,71 @@ const CreateElection = () => {
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-foreground font-medium">Start Date & Time</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Label className="text-foreground font-medium">Start Date & Time</Label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "flex-1 h-12 justify-start text-left font-normal",
+                            !startDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {startDate ? format(startDate, "PPP") : <span>Pick date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-50" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={startDate}
+                          onSelect={setStartDate}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <Input
-                      id="startDate"
-                      type="datetime-local"
-                      className="pl-12 h-12"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      required
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-28 h-12"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="endDate" className="text-foreground font-medium">End Date & Time</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Label className="text-foreground font-medium">End Date & Time</Label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "flex-1 h-12 justify-start text-left font-normal",
+                            !endDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {endDate ? format(endDate, "PPP") : <span>Pick date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-50" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={endDate}
+                          onSelect={setEndDate}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                     <Input
-                      id="endDate"
-                      type="datetime-local"
-                      className="pl-12 h-12"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      required
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-28 h-12"
                     />
                   </div>
                 </div>
