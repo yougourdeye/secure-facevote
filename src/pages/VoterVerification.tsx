@@ -132,19 +132,40 @@ const VoterVerification = () => {
 
       setMatchProgress(`Comparing against ${voters.length} registered voters...`);
 
+      // Stricter threshold for face matching (0.45 is more accurate than 0.6)
+      // Lower distance = more similar faces
+      // Typical same-person distance: 0.2-0.4
+      // Different person distance: 0.6-1.0+
+      const MATCH_THRESHOLD = 0.45;
+
       // Compare live face against all registered voters
       let matchedVoter = null;
       let bestMatch = { distance: Infinity, voter: null as typeof voters[0] | null };
+      
+      console.log("Live descriptor (first 5 values):", Array.from(liveDescriptor).slice(0, 5));
       
       for (let i = 0; i < voters.length; i++) {
         const voter = voters[i];
         setMatchProgress(`Checking voter ${i + 1} of ${voters.length}...`);
         
-        if (!voter.face_descriptor) continue;
+        if (!voter.face_descriptor) {
+          console.log(`Voter ${voter.id} has no face descriptor`);
+          continue;
+        }
         
         try {
-          const storedDescriptor = arrayToDescriptor(voter.face_descriptor as number[]);
-          const result = compareFaces(liveDescriptor, storedDescriptor, 0.6);
+          // Ensure we're working with a proper array
+          const descriptorArray = Array.isArray(voter.face_descriptor) 
+            ? voter.face_descriptor 
+            : Object.values(voter.face_descriptor);
+          
+          console.log(`Voter ${voter.full_name} stored descriptor (first 5 values):`, descriptorArray.slice(0, 5));
+          console.log(`Descriptor length: ${descriptorArray.length}`);
+          
+          const storedDescriptor = arrayToDescriptor(descriptorArray as number[]);
+          const result = compareFaces(liveDescriptor, storedDescriptor, MATCH_THRESHOLD);
+          
+          console.log(`Comparison with ${voter.full_name}: distance=${result.distance.toFixed(4)}, match=${result.match}`);
           
           if (result.distance < bestMatch.distance) {
             bestMatch = { distance: result.distance, voter };
@@ -152,6 +173,7 @@ const VoterVerification = () => {
           
           if (result.match) {
             matchedVoter = voter;
+            console.log(`MATCH FOUND: ${voter.full_name} with distance ${result.distance.toFixed(4)}`);
             break;
           }
         } catch (e) {
@@ -159,9 +181,12 @@ const VoterVerification = () => {
         }
       }
 
+      const similarity = ((1 - bestMatch.distance) * 100).toFixed(1);
+      console.log(`Best match: ${bestMatch.voter?.full_name || 'none'}, distance: ${bestMatch.distance.toFixed(4)}, similarity: ${similarity}%`);
+
       if (!matchedVoter) {
         setStatus("failed");
-        setMatchProgress(`No match found. Best similarity: ${((1 - bestMatch.distance) * 100).toFixed(1)}%`);
+        setMatchProgress(`No match found. Best similarity: ${similarity}% (need >55%)`);
         return;
       }
 
