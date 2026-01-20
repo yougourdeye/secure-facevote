@@ -160,8 +160,14 @@ const VoterRegistration = () => {
     }
 
     setStep("face");
-    startCamera();
   };
+
+  // Start camera only after the face step has rendered (so <video> ref exists)
+  useEffect(() => {
+    if (step === "face" && !capturedImage && !cameraActive) {
+      startCamera();
+    }
+  }, [step, capturedImage, cameraActive, startCamera]);
 
   const handleFinalSubmit = async () => {
     if (!capturedImage || !canvasRef.current || !isLoaded) return;
@@ -413,27 +419,33 @@ const VoterRegistration = () => {
               <div className="relative aspect-[4/3] bg-navy-dark rounded-2xl overflow-hidden mb-6">
                 {capturedImage ? (
                   <img src={capturedImage} alt="Captured face" className="w-full h-full object-cover" />
-                ) : cameraActive ? (
+                ) : (
                   <>
+                    {/* Always mount <video> so refs exist before starting camera */}
                     <video
                       ref={videoRef}
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full object-cover transition-opacity ${cameraActive ? "opacity-100" : "opacity-0"}`}
                     />
+
+                    {!cameraActive && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+                        <Camera className="w-16 h-16 mb-4" />
+                        <p className="text-sm">Initializing camera...</p>
+                      </div>
+                    )}
+
                     {/* Face guide overlay */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className={`w-40 h-52 border-4 rounded-[40%] border-dashed transition-colors ${
-                        faceDetected ? 'border-success' : 'border-teal/50'
-                      }`} />
+                      <div
+                        className={`w-40 h-52 border-4 rounded-[40%] border-dashed transition-colors ${
+                          faceDetected ? "border-success" : "border-teal/50"
+                        }`}
+                      />
                     </div>
                   </>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
-                    <Camera className="w-16 h-16 mb-4" />
-                    <p className="text-sm">Initializing camera...</p>
-                  </div>
                 )}
               </div>
               <canvas ref={canvasRef} className="hidden" />

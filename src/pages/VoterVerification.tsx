@@ -408,40 +408,43 @@ const VoterVerification = () => {
 
           {/* Camera View */}
           <div className="relative aspect-[4/3] bg-navy-dark rounded-3xl overflow-hidden mb-6">
-            {cameraActive ? (
-              <>
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                {/* Face guide overlay */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-60 border-4 border-teal/50 rounded-[40%] border-dashed" />
+            <>
+              {/* Always mount <video> so refs exist when auto-starting camera */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover transition-opacity ${cameraActive ? "opacity-100" : "opacity-0"}`}
+              />
+
+              {!cameraActive && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-16 h-16 mb-4 animate-spin" />
+                      <p className="text-sm">Loading face recognition...</p>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-16 h-16 mb-4" />
+                      <p className="text-sm">Camera is not active</p>
+                      <p className="text-xs mt-1">Click the button below to start</p>
+                    </>
+                  )}
                 </div>
-                {/* Scanning animation */}
-                {(status === "scanning" || status === "matching" || status === "liveness-check") && (
-                  <div className="absolute inset-0 face-scanner" />
-                )}
-              </>
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-16 h-16 mb-4 animate-spin" />
-                    <p className="text-sm">Loading face recognition...</p>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-16 h-16 mb-4" />
-                    <p className="text-sm">Camera is not active</p>
-                    <p className="text-xs mt-1">Click the button below to start</p>
-                  </>
-                )}
+              )}
+
+              {/* Face guide overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-48 h-60 border-4 border-teal/50 rounded-[40%] border-dashed" />
               </div>
-            )}
+
+              {/* Scanning animation */}
+              {(status === "scanning" || status === "matching" || status === "liveness-check") && (
+                <div className="absolute inset-0 face-scanner" />
+              )}
+            </>
             <canvas ref={canvasRef} className="hidden" />
 
             {/* Status overlays */}
