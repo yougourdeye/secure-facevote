@@ -67,21 +67,23 @@ const VotingBallot = () => {
       if (voterError) throw voterError;
       setVoter(voterData);
 
-      // Get active election
-      const { data: electionData, error: electionError } = await supabase
+      // Get active election (get the most recently started one if multiple)
+      const { data: electionsData, error: electionError } = await supabase
         .from('elections')
         .select('*')
         .eq('status', 'active')
-        .maybeSingle();
+        .order('start_time', { ascending: false })
+        .limit(1);
 
       if (electionError) throw electionError;
 
-      if (!electionData) {
+      if (!electionsData || electionsData.length === 0) {
         setError("No active election at this time.");
         setLoading(false);
         return;
       }
 
+      const electionData = electionsData[0];
       setElection(electionData);
 
       // Get candidates for this election
@@ -107,21 +109,23 @@ const VotingBallot = () => {
 
   const fetchElectionData = async () => {
     try {
-      // Get active election
-      const { data: electionData, error: electionError } = await supabase
+      // Get active election (get the most recently started one if multiple)
+      const { data: electionsData, error: electionError } = await supabase
         .from('elections')
         .select('*')
         .eq('status', 'active')
-        .maybeSingle();
+        .order('start_time', { ascending: false })
+        .limit(1);
 
       if (electionError) throw electionError;
 
-      if (!electionData) {
+      if (!electionsData || electionsData.length === 0) {
         setError("No active election at this time.");
         setLoading(false);
         return;
       }
 
+      const electionData = electionsData[0];
       setElection(electionData);
 
       // Get candidates for this election
