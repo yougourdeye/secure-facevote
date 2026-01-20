@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, Vote, ArrowLeft, User, AlertCircle } from "lucide-react";
+import { CheckCircle, Vote, ArrowLeft, User, AlertCircle, LogOut, IdCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -19,12 +19,19 @@ interface Election {
   description: string | null;
 }
 
+interface Voter {
+  id: string;
+  full_name: string;
+  national_id: string;
+}
+
 const VotingBallot = () => {
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [election, setElection] = useState<Election | null>(null);
+  const [voter, setVoter] = useState<Voter | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -45,8 +52,58 @@ const VotingBallot = () => {
       return;
     }
 
-    fetchElectionData();
+    fetchData();
   }, [voterId, sessionToken, navigate, toast]);
+
+  const fetchData = async () => {
+    try {
+      // Fetch voter info
+      const { data: voterData, error: voterError } = await supabase
+        .from('voters')
+        .select('id, full_name, national_id')
+        .eq('id', voterId)
+        .single();
+
+      if (voterError) throw voterError;
+      setVoter(voterData);
+
+      // Get active election
+      const { data: electionData, error: electionError } = await supabase
+        .from('elections')
+        .select('*')
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (electionError) throw electionError;
+
+      if (!electionData) {
+        setError("No active election at this time.");
+        setLoading(false);
+        return;
+      }
+
+      setElection(electionData);
+
+      // Get candidates for this election
+      const { data: candidatesData, error: candidatesError } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('election_id', electionData.id);
+
+      if (candidatesError) throw candidatesError;
+
+      setCandidates(candidatesData || []);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Failed to load election data.");
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    navigate('/');
+  };
 
   const fetchElectionData = async () => {
     try {
@@ -209,9 +266,31 @@ const VotingBallot = () => {
             <Vote className="w-6 h-6 text-teal-light" />
             <span className="font-display font-semibold">SecureVote</span>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <div className="w-2 h-2 bg-success rounded-full animate-pulse" />
-            <span className="text-primary-foreground/80">Verified Voter Session</span>
+          
+          {/* Voter Info */}
+          <div className="flex items-center gap-4">
+            {voter && (
+              <div className="hidden sm:flex items-center gap-3 bg-white/10 rounded-lg px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-teal-light" />
+                  <span className="font-medium">{voter.full_name}</span>
+                </div>
+                <div className="w-px h-4 bg-white/20" />
+                <div className="flex items-center gap-2">
+                  <IdCard className="w-4 h-4 text-teal-light" />
+                  <span className="text-sm text-white/80">{voter.national_id}</span>
+                </div>
+              </div>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-white/80 hover:text-white hover:bg-white/10"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Logout</span>
+            </Button>
           </div>
         </div>
       </header>
@@ -222,6 +301,21 @@ const VotingBallot = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-3xl mx-auto"
         >
+          {/* Voter Info Card (Mobile) */}
+          {voter && (
+            <div className="sm:hidden mb-6 p-4 bg-teal/10 border border-teal/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal/20 rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-teal" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">{voter.full_name}</p>
+                  <p className="text-sm text-muted-foreground">ID: {voter.national_id}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Election Title */}
           <div className="text-center mb-10">
             <h1 className="text-3xl font-display font-bold text-foreground mb-2">
