@@ -1,20 +1,35 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, CheckCircle, XCircle, AlertTriangle, Vote, RefreshCw, Shield, UserPlus, Loader2, Scan } from "lucide-react";
+import { Camera, CheckCircle, XCircle, AlertTriangle, Vote, RefreshCw, Shield, UserPlus, Loader2, Scan, IdCard, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFaceRecognition, arrayToDescriptor } from "@/hooks/useFaceRecognition";
 
-type VerificationStatus = "idle" | "loading-models" | "scanning" | "liveness-check" | "matching" | "success" | "failed" | "already-voted" | "not-registered" | "liveness-failed";
+type VerificationStep = "id-input" | "face-verify";
+type VerificationStatus = "idle" | "loading-models" | "scanning" | "liveness-check" | "matching" | "success" | "failed" | "already-voted" | "not-registered" | "liveness-failed" | "id-not-found";
+
+interface Voter {
+  id: string;
+  full_name: string;
+  national_id: string;
+  face_descriptor: unknown;
+  face_registered: boolean;
+}
 
 const VoterVerification = () => {
+  const [step, setStep] = useState<VerificationStep>("id-input");
+  const [nationalId, setNationalId] = useState("");
+  const [voter, setVoter] = useState<Voter | null>(null);
   const [status, setStatus] = useState<VerificationStatus>("idle");
   const [cameraActive, setCameraActive] = useState(false);
   const [verifiedVoterId, setVerifiedVoterId] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [matchProgress, setMatchProgress] = useState<string>("");
+  const [isCheckingId, setIsCheckingId] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
@@ -27,12 +42,12 @@ const VoterVerification = () => {
     loadModels();
   }, [loadModels]);
 
-  // Auto-start camera when models are loaded
+  // Start camera when entering face-verify step
   useEffect(() => {
-    if (isLoaded && !cameraActive) {
+    if (step === "face-verify" && isLoaded && !cameraActive) {
       startCamera();
     }
-  }, [isLoaded]);
+  }, [step, isLoaded]);
 
   const startCamera = useCallback(async () => {
     try {
@@ -41,7 +56,6 @@ const VoterVerification = () => {
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Wait for video to actually start playing
         await new Promise<void>((resolve) => {
           if (videoRef.current) {
             videoRef.current.onloadedmetadata = () => {
@@ -76,8 +90,89 @@ const VoterVerification = () => {
     };
   }, [stopCamera]);
 
+  const handleIdSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!nationalId.trim()) {
+      toast({
+        title: "ID Required",
+        description: "Please enter your National/Registration ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCheckingId(true);
+
+    try {
+      // Look up voter by national ID
+      const { data: foundVoter, error } = await supabase
+        .from('voters')
+        .select('id, full_name, national_id, face_descriptor, face_registered')
+        .eq('national_id', nationalId.trim())
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!foundVoter) {
+        setStatus("id-not-found");
+        toast({
+          title: "ID Not Found",
+          description: "This ID is not registered. Please register first.",
+          variant: "destructive",
+        });
+        setIsCheckingId(false);
+        return;
+      }
+
+      if (!foundVoter.face_registered || !foundVoter.face_descriptor) {
+        toast({
+          title: "Registration Incomplete",
+          description: "Your face is not registered. Please complete registration first.",
+          variant: "destructive",
+        });
+        setIsCheckingId(false);
+        return;
+      }
+
+      // Check if already voted
+      const { data: activeElection } = await supabase
+        .from('elections')
+        .select('id')
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (activeElection) {
+        const { data: existingVote } = await supabase
+          .from('votes')
+          .select('id')
+          .eq('voter_id', foundVoter.id)
+          .eq('election_id', activeElection.id)
+          .maybeSingle();
+
+        if (existingVote) {
+          setStatus("already-voted");
+          setIsCheckingId(false);
+          return;
+        }
+      }
+
+      setVoter(foundVoter);
+      setStep("face-verify");
+    } catch (error) {
+      console.error("Error checking ID:", error);
+      toast({
+        title: "Error",
+        description: "Failed to verify ID. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingId(false);
+    }
+  };
+
   const handleVerify = async () => {
-    if (!videoRef.current || !canvasRef.current || !isLoaded) return;
+    if (!videoRef.current || !canvasRef.current || !isLoaded || !voter) return;
     
     setStatus("liveness-check");
     setMatchProgress("Checking liveness...");
@@ -114,85 +209,36 @@ const VoterVerification = () => {
       }
       
       setStatus("matching");
-      setMatchProgress("Searching voter database...");
-      
-      // Get all registered voters with face descriptors
-      const { data: voters, error } = await supabase
-        .from('voters')
-        .select('*')
-        .eq('face_registered', true)
-        .not('face_descriptor', 'is', null);
+      setMatchProgress(`Comparing with ${voter.full_name}'s registered face...`);
 
-      if (error) throw error;
-
-      if (!voters || voters.length === 0) {
-        setStatus("not-registered");
-        return;
-      }
-
-      setMatchProgress(`Comparing against ${voters.length} registered voters...`);
-
-      // Stricter threshold for face matching (0.45 is more accurate than 0.6)
-      // Lower distance = more similar faces
-      // Typical same-person distance: 0.2-0.4
-      // Different person distance: 0.6-1.0+
+      // Stricter threshold for face matching
       const MATCH_THRESHOLD = 0.45;
 
-      // Compare live face against all registered voters
-      let matchedVoter = null;
-      let bestMatch = { distance: Infinity, voter: null as typeof voters[0] | null };
+      // Compare live face against the specific voter's registered face
+      const descriptorArray = Array.isArray(voter.face_descriptor) 
+        ? voter.face_descriptor 
+        : Object.values(voter.face_descriptor as object);
       
       console.log("Live descriptor (first 5 values):", Array.from(liveDescriptor).slice(0, 5));
+      console.log("Stored descriptor (first 5 values):", descriptorArray.slice(0, 5));
       
-      for (let i = 0; i < voters.length; i++) {
-        const voter = voters[i];
-        setMatchProgress(`Checking voter ${i + 1} of ${voters.length}...`);
-        
-        if (!voter.face_descriptor) {
-          console.log(`Voter ${voter.id} has no face descriptor`);
-          continue;
-        }
-        
-        try {
-          // Ensure we're working with a proper array
-          const descriptorArray = Array.isArray(voter.face_descriptor) 
-            ? voter.face_descriptor 
-            : Object.values(voter.face_descriptor);
-          
-          console.log(`Voter ${voter.full_name} stored descriptor (first 5 values):`, descriptorArray.slice(0, 5));
-          console.log(`Descriptor length: ${descriptorArray.length}`);
-          
-          const storedDescriptor = arrayToDescriptor(descriptorArray as number[]);
-          const result = compareFaces(liveDescriptor, storedDescriptor, MATCH_THRESHOLD);
-          
-          console.log(`Comparison with ${voter.full_name}: distance=${result.distance.toFixed(4)}, match=${result.match}`);
-          
-          if (result.distance < bestMatch.distance) {
-            bestMatch = { distance: result.distance, voter };
-          }
-          
-          if (result.match) {
-            matchedVoter = voter;
-            console.log(`MATCH FOUND: ${voter.full_name} with distance ${result.distance.toFixed(4)}`);
-            break;
-          }
-        } catch (e) {
-          console.error("Error comparing face with voter:", voter.id, e);
-        }
-      }
+      const storedDescriptor = arrayToDescriptor(descriptorArray as number[]);
+      const result = compareFaces(liveDescriptor, storedDescriptor, MATCH_THRESHOLD);
+      
+      const similarity = ((1 - result.distance) * 100).toFixed(1);
+      console.log(`Comparison result: distance=${result.distance.toFixed(4)}, similarity=${similarity}%, match=${result.match}`);
 
-      const similarity = ((1 - bestMatch.distance) * 100).toFixed(1);
-      console.log(`Best match: ${bestMatch.voter?.full_name || 'none'}, distance: ${bestMatch.distance.toFixed(4)}, similarity: ${similarity}%`);
-
-      if (!matchedVoter) {
+      if (!result.match) {
         setStatus("failed");
-        setMatchProgress(`No match found. Best similarity: ${similarity}% (need >55%)`);
+        setMatchProgress(`Face does not match. Similarity: ${similarity}% (need >55%)`);
         return;
       }
 
-      setMatchProgress("Match found! Verifying eligibility...");
+      setMatchProgress("Face matched! Verifying eligibility...");
 
-      // Check if voter has already voted in the active election
+      // Create verification session
+      const token = crypto.randomUUID();
+      
       const { data: activeElection } = await supabase
         .from('elections')
         .select('id')
@@ -200,39 +246,22 @@ const VoterVerification = () => {
         .maybeSingle();
 
       if (activeElection) {
-        const { data: existingVote } = await supabase
-          .from('votes')
-          .select('id')
-          .eq('voter_id', matchedVoter.id)
-          .eq('election_id', activeElection.id)
-          .maybeSingle();
-
-        if (existingVote) {
-          setStatus("already-voted");
-          return;
-        }
-      }
-
-      // Create verification session
-      const token = crypto.randomUUID();
-      
-      if (activeElection) {
         await supabase.from('voter_verifications').insert({
-          voter_id: matchedVoter.id,
+          voter_id: voter.id,
           election_id: activeElection.id,
           session_token: token,
           verification_status: 'success'
         });
       }
 
-      setVerifiedVoterId(matchedVoter.id);
+      setVerifiedVoterId(voter.id);
       setSessionToken(token);
       setStatus("success");
 
       // Redirect to ballot after short delay
       setTimeout(() => {
         stopCamera();
-        navigate('/vote/ballot', { state: { voterId: matchedVoter.id, sessionToken: token } });
+        navigate('/vote/ballot', { state: { voterId: voter.id, sessionToken: token } });
       }, 2000);
 
     } catch (error) {
@@ -249,21 +278,16 @@ const VoterVerification = () => {
     setMatchProgress("");
   };
 
+  const handleBackToId = () => {
+    stopCamera();
+    setStep("id-input");
+    setVoter(null);
+    setStatus("idle");
+    setMatchProgress("");
+  };
+
   const renderStatusContent = () => {
     switch (status) {
-      case "loading-models":
-        return (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 flex items-center justify-center bg-navy/80 rounded-3xl"
-          >
-            <div className="text-center">
-              <Loader2 className="w-16 h-16 text-teal mx-auto animate-spin" />
-              <p className="text-white font-medium mt-6">Loading face recognition...</p>
-            </div>
-          </motion.div>
-        );
       case "liveness-check":
         return (
           <motion.div
@@ -311,7 +335,8 @@ const VoterVerification = () => {
             <div className="text-center">
               <CheckCircle className="w-20 h-20 text-white mx-auto" />
               <p className="text-white font-display font-bold text-2xl mt-4">Identity Verified</p>
-              <p className="text-white/80 mt-2">Redirecting to ballot...</p>
+              <p className="text-white/80 mt-2">Welcome, {voter?.full_name}!</p>
+              <p className="text-white/60 text-sm mt-1">Redirecting to ballot...</p>
             </div>
           </motion.div>
         );
@@ -325,11 +350,16 @@ const VoterVerification = () => {
             <div className="text-center px-6">
               <XCircle className="w-20 h-20 text-white mx-auto" />
               <p className="text-white font-display font-bold text-2xl mt-4">Verification Failed</p>
-              <p className="text-white/80 mt-2 mb-6">{matchProgress || "Face not recognized in voter database"}</p>
-              <Button variant="heroOutline" onClick={handleRetry}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Try Again
-              </Button>
+              <p className="text-white/80 mt-2 mb-6">{matchProgress || "Face does not match registered voter"}</p>
+              <div className="flex gap-3 justify-center">
+                <Button variant="heroOutline" onClick={handleRetry}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <Button variant="ghost" className="text-white/70" onClick={handleBackToId}>
+                  Change ID
+                </Button>
+              </div>
             </div>
           </motion.div>
         );
@@ -351,46 +381,166 @@ const VoterVerification = () => {
             </div>
           </motion.div>
         );
-      case "already-voted":
-        return (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 flex items-center justify-center bg-warning/90 rounded-3xl"
-          >
-            <div className="text-center">
-              <AlertTriangle className="w-20 h-20 text-white mx-auto" />
-              <p className="text-white font-display font-bold text-2xl mt-4">Already Voted</p>
-              <p className="text-white/80 mt-2 mb-6">You have already cast your vote in this election</p>
-              <Button variant="heroOutline" onClick={() => navigate('/')}>
-                Return Home
-              </Button>
-            </div>
-          </motion.div>
-        );
-      case "not-registered":
-        return (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 flex items-center justify-center bg-navy/90 rounded-3xl"
-          >
-            <div className="text-center">
-              <UserPlus className="w-20 h-20 text-teal mx-auto" />
-              <p className="text-white font-display font-bold text-2xl mt-4">No Voters Registered</p>
-              <p className="text-white/80 mt-2 mb-6">Please register first before voting</p>
-              <Button variant="hero" onClick={() => navigate('/register')}>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Register Now
-              </Button>
-            </div>
-          </motion.div>
-        );
       default:
         return null;
     }
   };
 
+  // ID Input Step
+  if (step === "id-input") {
+    return (
+      <div className="min-h-screen hero-gradient flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-teal/10 rounded-full blur-3xl float-animation" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-white/5 rounded-full blur-3xl float-animation" style={{ animationDelay: '2s' }} />
+        </div>
+
+        {/* Back to home */}
+        <div className="absolute top-6 left-6">
+          <Button variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10" onClick={() => navigate('/')}>
+            <Vote className="w-5 h-5 mr-2" />
+            SecureVote
+          </Button>
+        </div>
+
+        <motion.div
+          className="w-full max-w-lg"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="glass-card rounded-3xl p-8 md:p-10">
+            {/* Model loading indicator */}
+            {isLoading && (
+              <div className="mb-4 p-3 bg-teal/10 rounded-lg flex items-center gap-3 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin text-teal" />
+                <span className="text-teal">Loading face recognition models...</span>
+              </div>
+            )}
+
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-teal/20 rounded-2xl mb-4">
+                <IdCard className="w-8 h-8 text-teal" />
+              </div>
+              <h1 className="text-2xl font-display font-bold text-foreground">Voter Login</h1>
+              <p className="text-muted-foreground mt-2">Enter your ID to proceed to face verification</p>
+            </div>
+
+            {/* Already voted status */}
+            {status === "already-voted" && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-xl"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-warning">Already Voted</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      You have already cast your vote in the current election.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ID not found status */}
+            {status === "id-not-found" && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-xl"
+              >
+                <div className="flex items-start gap-3">
+                  <XCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-destructive">ID Not Found</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      This ID is not registered. Please register first before voting.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            <form onSubmit={handleIdSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="nationalId" className="text-foreground font-medium">National/Registration ID</Label>
+                <div className="relative">
+                  <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="nationalId"
+                    type="text"
+                    placeholder="Enter your registered ID"
+                    value={nationalId}
+                    onChange={(e) => {
+                      setNationalId(e.target.value);
+                      if (status === "id-not-found" || status === "already-voted") {
+                        setStatus("idle");
+                      }
+                    }}
+                    className="pl-12 h-12 bg-background border-border focus:border-teal"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                variant="hero" 
+                size="lg" 
+                className="w-full"
+                disabled={isCheckingId || !isLoaded}
+              >
+                {isCheckingId ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : !isLoaded ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    Continue to Face Verification
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <Button 
+              variant="ghost" 
+              size="lg" 
+              className="w-full mt-4 text-muted-foreground" 
+              onClick={() => navigate('/register')}
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Not registered? Register here
+            </Button>
+
+            {/* Security notice */}
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex items-start gap-3 text-xs text-muted-foreground">
+                <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <p>
+                  After entering your ID, you'll verify your identity using face recognition.
+                  This ensures only you can cast your vote.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Face Verification Step
   return (
     <div className="min-h-screen hero-gradient flex items-center justify-center p-6 relative overflow-hidden">
       {/* Background elements */}
@@ -414,16 +564,23 @@ const VoterVerification = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="glass-card rounded-3xl p-8 md:p-10">
-          {/* Model loading indicator */}
-          {isLoading && (
-            <div className="mb-4 p-3 bg-teal/10 rounded-lg flex items-center gap-3 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin text-teal" />
-              <span className="text-teal">Loading face recognition models...</span>
+          {/* Voter info banner */}
+          {voter && (
+            <div className="mb-6 p-4 bg-teal/10 border border-teal/30 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal/20 rounded-full flex items-center justify-center">
+                  <IdCard className="w-5 h-5 text-teal" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">{voter.full_name}</p>
+                  <p className="text-sm text-muted-foreground">ID: {voter.national_id}</p>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-teal/20 rounded-2xl mb-4">
               <Camera className="w-8 h-8 text-teal" />
             </div>
@@ -433,43 +590,31 @@ const VoterVerification = () => {
 
           {/* Camera View */}
           <div className="relative aspect-[4/3] bg-navy-dark rounded-3xl overflow-hidden mb-6">
-            <>
-              {/* Always mount <video> so refs exist when auto-starting camera */}
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full object-cover transition-opacity ${cameraActive ? "opacity-100" : "opacity-0"}`}
-              />
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover transition-opacity ${cameraActive ? "opacity-100" : "opacity-0"}`}
+            />
 
-              {!cameraActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-16 h-16 mb-4 animate-spin" />
-                      <p className="text-sm">Loading face recognition...</p>
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-16 h-16 mb-4" />
-                      <p className="text-sm">Camera is not active</p>
-                      <p className="text-xs mt-1">Click the button below to start</p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Face guide overlay */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-48 h-60 border-4 border-teal/50 rounded-[40%] border-dashed" />
+            {!cameraActive && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+                <Loader2 className="w-16 h-16 mb-4 animate-spin" />
+                <p className="text-sm">Starting camera...</p>
               </div>
+            )}
 
-              {/* Scanning animation */}
-              {(status === "scanning" || status === "matching" || status === "liveness-check") && (
-                <div className="absolute inset-0 face-scanner" />
-              )}
-            </>
+            {/* Face guide overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-48 h-60 border-4 border-teal/50 rounded-[40%] border-dashed" />
+            </div>
+
+            {/* Scanning animation */}
+            {(status === "scanning" || status === "matching" || status === "liveness-check") && (
+              <div className="absolute inset-0 face-scanner" />
+            )}
+
             <canvas ref={canvasRef} className="hidden" />
 
             {/* Status overlays */}
@@ -480,26 +625,20 @@ const VoterVerification = () => {
 
           {/* Controls */}
           <div className="space-y-4">
-            {!cameraActive && isLoaded ? (
-              <Button variant="teal" size="lg" className="w-full" onClick={startCamera}>
-                <Camera className="w-5 h-5 mr-2" />
-                Activate Camera
-              </Button>
-            ) : cameraActive && status === "idle" ? (
+            {cameraActive && status === "idle" && (
               <Button variant="hero" size="lg" className="w-full" onClick={handleVerify}>
                 <Shield className="w-5 h-5 mr-2" />
-                Verify My Identity
+                Verify My Face
               </Button>
-            ) : null}
+            )}
 
             <Button 
               variant="ghost" 
               size="lg" 
               className="w-full text-muted-foreground" 
-              onClick={() => navigate('/register')}
+              onClick={handleBackToId}
             >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Not registered? Register here
+              ← Back to ID Entry
             </Button>
           </div>
 
@@ -508,8 +647,8 @@ const VoterVerification = () => {
             <div className="flex items-start gap-3 text-xs text-muted-foreground">
               <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <p>
-                Your facial data is encrypted and securely processed. We use advanced 
-                liveness detection to prevent fraud.
+                Your face will be compared against your registered photo.
+                We use liveness detection to prevent fraud.
               </p>
             </div>
           </div>
