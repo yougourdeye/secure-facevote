@@ -11,6 +11,7 @@ import VoterVerification from "./pages/VoterVerification";
 import VotingBallot from "./pages/VotingBallot";
 import CreateElection from "./pages/CreateElection";
 import VoterManagement from "./pages/VoterManagement";
+import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,9 +26,21 @@ const App = () => (
           <Route path="/" element={<LandingPage />} />
           <Route path="/register" element={<VoterRegistration />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/elections/new" element={<CreateElection />} />
-          <Route path="/admin/voters" element={<VoterManagement />} />
+          <Route path="/admin/dashboard" element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          } />
+          <Route path="/admin/elections/new" element={
+            <AdminProtectedRoute>
+              <CreateElection />
+            </AdminProtectedRoute>
+          } />
+          <Route path="/admin/voters" element={
+            <AdminProtectedRoute>
+              <VoterManagement />
+            </AdminProtectedRoute>
+          } />
           <Route path="/vote" element={<VoterVerification />} />
           <Route path="/vote/ballot" element={<VotingBallot />} />
           <Route path="*" element={<NotFound />} />
