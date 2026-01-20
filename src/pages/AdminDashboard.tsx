@@ -1,70 +1,442 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import { 
-  Users, Vote, BarChart3, Calendar, Plus, Settings, LogOut, 
-  ChevronRight, TrendingUp, CheckCircle, Clock, UserCheck, AlertCircle
+  Users, Vote, BarChart3, Settings, LogOut, 
+  Plus, TrendingUp, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-interface StatCard {
-  title: string;
-  value: string;
-  change: string;
-  icon: React.ElementType;
-  trend: "up" | "down" | "neutral";
-}
+import OverviewTab from "@/components/admin/OverviewTab";
+import ElectionsTab from "@/components/admin/ElectionsTab";
+import VotersTab from "@/components/admin/VotersTab";
+import ResultsTab from "@/components/admin/ResultsTab";
 
 interface Election {
   id: string;
   title: string;
-  status: "active" | "upcoming" | "completed";
+  description: string | null;
+  status: "active" | "upcoming" | "completed" | "draft";
+  start_time: string;
+  end_time: string;
   totalVotes: number;
   totalVoters: number;
-  endDate: string;
+}
+
+interface Voter {
+  id: string;
+  full_name: string;
+  national_id: string;
+  face_registered: boolean;
+  created_at: string;
+  hasVoted: boolean;
+}
+
+interface CandidateResult {
+  id: string;
+  name: string;
+  party: string | null;
+  votes: number;
+  percentage: number;
+}
+
+interface ElectionResult {
+  id: string;
+  title: string;
+  status: string;
+  totalVotes: number;
+  candidates: CandidateResult[];
 }
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { signOut } = useAdminAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  
+  // Data states
+  const [elections, setElections] = useState<Election[]>([]);
+  const [voters, setVoters] = useState<Voter[]>([]);
+  const [electionResults, setElectionResults] = useState<ElectionResult[]>([]);
+  const [recentActivity, setRecentActivity] = useState<{ action: string; name: string; time: string }[]>([]);
 
-  const stats: StatCard[] = [
-    { title: "Total Voters", value: "12,543", change: "+12%", icon: Users, trend: "up" },
-    { title: "Active Elections", value: "3", change: "2 upcoming", icon: Vote, trend: "neutral" },
-    { title: "Votes Cast Today", value: "1,284", change: "+28%", icon: BarChart3, trend: "up" },
-    { title: "Verified Users", value: "11,892", change: "95%", icon: UserCheck, trend: "up" },
-  ];
+  useEffect(() => {
+    fetchAllData();
+  }, []);
 
-  const elections: Election[] = [
-    { id: "1", title: "Presidential Election 2024", status: "active", totalVotes: 8432, totalVoters: 12543, endDate: "2024-11-15" },
-    { id: "2", title: "City Council Election", status: "upcoming", totalVotes: 0, totalVoters: 5621, endDate: "2024-12-01" },
-    { id: "3", title: "School Board Election", status: "completed", totalVotes: 3241, totalVoters: 4500, endDate: "2024-10-20" },
-  ];
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchElections(),
+        fetchVoters(),
+        fetchResults(),
+      ]);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const recentActivity = [
-    { action: "New voter registered", name: "John Smith", time: "2 min ago" },
-    { action: "Vote cast", name: "Anonymous", time: "5 min ago" },
-    { action: "Election activated", name: "Presidential 2024", time: "1 hour ago" },
-    { action: "Candidate added", name: "Maria Garcia", time: "3 hours ago" },
-  ];
+  const fetchElections = async () => {
+    const { data: electionsData, error } = await supabase
+      .from('elections')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching elections:", error);
+      return;
+    }
+
+    // Get vote counts for each election
+    const electionsWithCounts = await Promise.all(
+      (electionsData || []).map(async (election) => {
+        const { count: voteCount } = await supabase
+          .from('votes')
+          .select('*', { count: 'exact', head: true })
+          .eq('election_id', election.id);
+
+        return {
+          ...election,
+          totalVotes: voteCount || 0,
+          totalVoters: voters.length,
+        };
+      })
+    );
+
+    setElections(electionsWithCounts as Election[]);
+  };
+
+  const fetchVoters = async () => {
+    const { data: votersData, error } = await supabase
+      .from('voters')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching voters:", error);
+      return;
+    }
+
+    // Check which voters have voted
+    const { data: votes } = await supabase
+      .from('votes')
+      .select('voter_id');
+
+    const votedIds = new Set(votes?.map(v => v.voter_id) || []);
+
+    const votersWithStatus = (votersData || []).map(voter => ({
+      ...voter,
+      hasVoted: votedIds.has(voter.id),
+    }));
+
+    setVoters(votersWithStatus);
+
+    // Build recent activity
+    const activity = votersData?.slice(0, 5).map(voter => ({
+      action: "Voter registered",
+      name: voter.full_name,
+      time: formatTimeAgo(voter.created_at),
+    })) || [];
+
+    setRecentActivity(activity);
+  };
+
+  const fetchResults = async () => {
+    const { data: electionsData, error: elError } = await supabase
+      .from('elections')
+      .select('*');
+
+    if (elError || !electionsData) return;
+
+    const results: ElectionResult[] = await Promise.all(
+      electionsData.map(async (election) => {
+        const { data: candidates } = await supabase
+          .from('candidates')
+          .select('*')
+          .eq('election_id', election.id);
+
+        const { data: votes } = await supabase
+          .from('votes')
+          .select('candidate_id')
+          .eq('election_id', election.id);
+
+        const totalVotes = votes?.length || 0;
+
+        const candidateResults: CandidateResult[] = (candidates || []).map(candidate => {
+          const candidateVotes = votes?.filter(v => v.candidate_id === candidate.id).length || 0;
+          return {
+            id: candidate.id,
+            name: candidate.name,
+            party: candidate.party,
+            votes: candidateVotes,
+            percentage: totalVotes > 0 ? (candidateVotes / totalVotes) * 100 : 0,
+          };
+        });
+
+        return {
+          id: election.id,
+          title: election.title,
+          status: election.status,
+          totalVotes,
+          candidates: candidateResults,
+        };
+      })
+    );
+
+    setElectionResults(results);
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hours ago`;
+    return `${diffDays} days ago`;
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const handleActivateElection = async (id: string) => {
+    const { error } = await supabase
+      .from('elections')
+      .update({ status: 'active' })
+      .eq('id', id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to activate election", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Success", description: "Election activated" });
+    fetchElections();
+  };
+
+  const handleDeleteElection = async (id: string) => {
+    const { error } = await supabase
+      .from('elections')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete election", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Success", description: "Election deleted" });
+    fetchElections();
+  };
+
+  const exportStatisticsPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("SecureVote Statistics Report", 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+
+    // Summary stats
+    doc.setFontSize(14);
+    doc.text("Summary", 14, 45);
+    
+    autoTable(doc, {
+      startY: 50,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Voters', voters.length.toString()],
+        ['Verified Voters', voters.filter(v => v.face_registered).length.toString()],
+        ['Total Elections', elections.length.toString()],
+        ['Active Elections', elections.filter(e => e.status === 'active').length.toString()],
+        ['Total Votes Cast', elections.reduce((sum, e) => sum + e.totalVotes, 0).toString()],
+      ],
+    });
+
+    // Elections table
+    const finalY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.text("Elections", 14, finalY);
+
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Title', 'Status', 'Votes', 'Start Date', 'End Date']],
+      body: elections.map(e => [
+        e.title,
+        e.status,
+        e.totalVotes.toString(),
+        new Date(e.start_time).toLocaleDateString(),
+        new Date(e.end_time).toLocaleDateString(),
+      ]),
+    });
+
+    doc.save('securevote-statistics.pdf');
+    toast({ title: "Exported", description: "Statistics PDF downloaded" });
+  };
+
+  const exportVotersPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("Registered Voters Report", 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Total Voters: ${voters.length}`, 14, 36);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [['Name', 'National ID', 'Face Registered', 'Voted', 'Registered On']],
+      body: voters.map(v => [
+        v.full_name,
+        v.national_id,
+        v.face_registered ? 'Yes' : 'No',
+        v.hasVoted ? 'Yes' : 'No',
+        new Date(v.created_at).toLocaleDateString(),
+      ]),
+    });
+
+    doc.save('securevote-voters.pdf');
+    toast({ title: "Exported", description: "Voters PDF downloaded" });
+  };
+
+  const exportResultsPDF = (electionId: string) => {
+    const election = electionResults.find(e => e.id === electionId);
+    if (!election) return;
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.text("Election Results Report", 14, 22);
+    doc.setFontSize(14);
+    doc.text(election.title, 14, 32);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 40);
+    doc.text(`Total Votes: ${election.totalVotes}`, 14, 46);
+
+    autoTable(doc, {
+      startY: 55,
+      head: [['Rank', 'Candidate', 'Party', 'Votes', 'Percentage']],
+      body: election.candidates
+        .sort((a, b) => b.votes - a.votes)
+        .map((c, i) => [
+          (i + 1).toString(),
+          c.name,
+          c.party || '-',
+          c.votes.toString(),
+          `${c.percentage.toFixed(1)}%`,
+        ]),
+    });
+
+    doc.save(`securevote-results-${election.title.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+    toast({ title: "Exported", description: "Results PDF downloaded" });
+  };
 
   const sidebarItems = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "elections", label: "Elections", icon: Vote },
     { id: "voters", label: "Voters", icon: Users },
-    { id: "candidates", label: "Candidates", icon: UserCheck },
     { id: "results", label: "Results", icon: TrendingUp },
-    { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  const getStatusBadge = (status: Election["status"]) => {
-    const styles = {
-      active: "bg-success/10 text-success border-success/20",
-      upcoming: "bg-warning/10 text-warning border-warning/20",
-      completed: "bg-muted text-muted-foreground border-border",
-    };
-    return styles[status];
+  const stats = [
+    { 
+      title: "Total Voters", 
+      value: voters.length.toLocaleString(), 
+      change: `${voters.filter(v => v.face_registered).length} verified`, 
+      icon: Users, 
+      trend: "up" as const 
+    },
+    { 
+      title: "Active Elections", 
+      value: elections.filter(e => e.status === 'active').length.toString(), 
+      change: `${elections.filter(e => e.status === 'upcoming').length} upcoming`, 
+      icon: Vote, 
+      trend: "neutral" as const 
+    },
+    { 
+      title: "Total Votes Cast", 
+      value: elections.reduce((sum, e) => sum + e.totalVotes, 0).toLocaleString(), 
+      change: "All elections", 
+      icon: BarChart3, 
+      trend: "up" as const 
+    },
+    { 
+      title: "Verified Users", 
+      value: voters.filter(v => v.face_registered).length.toLocaleString(), 
+      change: voters.length > 0 ? `${Math.round((voters.filter(v => v.face_registered).length / voters.length) * 100)}%` : "0%", 
+      icon: UserCheck, 
+      trend: "up" as const 
+    },
+  ];
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "overview":
+        return (
+          <OverviewTab
+            stats={stats}
+            elections={elections.map(e => ({
+              ...e,
+              endDate: e.end_time,
+            }))}
+            recentActivity={recentActivity}
+            onExportPDF={exportStatisticsPDF}
+            onViewElection={(id) => {
+              setActiveTab("elections");
+            }}
+          />
+        );
+      case "elections":
+        return (
+          <ElectionsTab
+            elections={elections}
+            onActivate={handleActivateElection}
+            onDelete={handleDeleteElection}
+          />
+        );
+      case "voters":
+        return (
+          <VotersTab
+            voters={voters}
+            onExportVoters={exportVotersPDF}
+          />
+        );
+      case "results":
+        return (
+          <ResultsTab
+            elections={electionResults}
+            onExportResults={exportResultsPDF}
+          />
+        );
+      default:
+        return null;
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-teal rounded-full border-t-transparent animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -100,7 +472,7 @@ const AdminDashboard = () => {
           <Button 
             variant="ghost" 
             className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-            onClick={() => navigate('/')}
+            onClick={handleSignOut}
           >
             <LogOut className="w-5 h-5 mr-3" />
             Sign Out
@@ -114,7 +486,9 @@ const AdminDashboard = () => {
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">Dashboard</h1>
+              <h1 className="text-2xl font-display font-bold text-foreground capitalize">
+                {activeTab === "overview" ? "Dashboard" : activeTab}
+              </h1>
               <p className="text-sm text-muted-foreground">Welcome back, Administrator</p>
             </div>
             <div className="flex items-center gap-4">
@@ -127,103 +501,7 @@ const AdminDashboard = () => {
         </header>
 
         <div className="p-8">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.title}
-                className="bg-card rounded-2xl border border-border p-6 hover:shadow-card transition-shadow"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 bg-primary/10 rounded-xl">
-                    <stat.icon className="w-6 h-6 text-primary" />
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    stat.trend === "up" ? "bg-success/10 text-success" : 
-                    stat.trend === "down" ? "bg-destructive/10 text-destructive" : 
-                    "bg-muted text-muted-foreground"
-                  }`}>
-                    {stat.change}
-                  </span>
-                </div>
-                <h3 className="text-3xl font-display font-bold text-foreground mb-1">{stat.value}</h3>
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Elections List */}
-            <div className="lg:col-span-2">
-              <div className="bg-card rounded-2xl border border-border overflow-hidden">
-                <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-                  <h2 className="font-display font-semibold text-foreground">Elections</h2>
-                  <Button variant="ghost" size="sm">
-                    View All <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-                <div className="divide-y divide-border">
-                  {elections.map((election) => (
-                    <div key={election.id} className="px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-xl ${
-                          election.status === "active" ? "bg-success/10" :
-                          election.status === "upcoming" ? "bg-warning/10" : "bg-muted"
-                        }`}>
-                          {election.status === "active" ? (
-                            <Vote className="w-5 h-5 text-success" />
-                          ) : election.status === "upcoming" ? (
-                            <Clock className="w-5 h-5 text-warning" />
-                          ) : (
-                            <CheckCircle className="w-5 h-5 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-foreground">{election.title}</h3>
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            <span>{election.totalVotes.toLocaleString()} votes</span>
-                            <span>•</span>
-                            <span>{election.totalVoters.toLocaleString()} voters</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className={`text-xs font-medium px-3 py-1 rounded-full border capitalize ${getStatusBadge(election.status)}`}>
-                          {election.status}
-                        </span>
-                        <Button variant="ghost" size="icon">
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-border">
-                <h2 className="font-display font-semibold text-foreground">Recent Activity</h2>
-              </div>
-              <div className="p-6 space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
-                      <AlertCircle className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-foreground">{activity.action}</p>
-                      <p className="text-xs text-muted-foreground">{activity.name} • {activity.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {renderTabContent()}
         </div>
       </main>
     </div>
