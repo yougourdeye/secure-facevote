@@ -10,6 +10,7 @@ import VoterRegistration from "./pages/VoterRegistration";
 import VoterVerification from "./pages/VoterVerification";
 import VotingBallot from "./pages/VotingBallot";
 import CreateElection from "./pages/CreateElection";
+import EditElection from "./pages/EditElection";
 import VoterManagement from "./pages/VoterManagement";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,11 @@ const App = () => (
           <Route path="/admin/elections/new" element={
             <AdminProtectedRoute>
               <CreateElection />
+            </AdminProtectedRoute>
+          } />
+          <Route path="/admin/elections/:id/edit" element={
+            <AdminProtectedRoute>
+              <EditElection />
             </AdminProtectedRoute>
           } />
           <Route path="/admin/voters" element={

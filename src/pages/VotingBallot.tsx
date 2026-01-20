@@ -269,15 +269,9 @@ const VotingBallot = () => {
           <h1 className="text-3xl font-display font-bold text-foreground mb-4">
             Vote Submitted!
           </h1>
-          <p className="text-muted-foreground mb-4">
+          <p className="text-muted-foreground mb-8">
             Your vote for <span className="font-semibold text-foreground">{selectedElection?.title}</span> has been securely recorded.
           </p>
-          <div className="bg-muted rounded-xl p-4 mb-8">
-            <p className="text-xs text-muted-foreground mb-1">Confirmation Number</p>
-            <p className="font-mono text-lg font-bold text-foreground">
-              SV-{Date.now().toString(36).toUpperCase()}
-            </p>
-          </div>
           <div className="flex flex-col gap-3">
             {elections.filter(e => !votedElections.has(e.id) && e.id !== selectedElection?.id).length > 0 && (
               <Button variant="navy" size="lg" className="w-full" onClick={handleBackToElections}>
