@@ -234,25 +234,77 @@ const VotingBallot = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen hero-gradient flex items-center justify-center p-6">
-        <motion.div
-          className="max-w-md w-full glass-card rounded-3xl p-10 text-center"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-        >
-          <div className="w-24 h-24 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-14 h-14 text-warning" />
+      <div className="min-h-screen bg-background">
+        {/* Header with Voter Info */}
+        <header className="bg-primary text-primary-foreground py-4 px-6 sticky top-0 z-50">
+          <div className="container mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Vote className="w-6 h-6 text-teal-light" />
+              <span className="font-display font-semibold">SecureVote</span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {voter && (
+                <div className="hidden sm:flex items-center gap-3 bg-white/10 rounded-lg px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-teal-light" />
+                    <span className="font-medium">{voter.full_name}</span>
+                  </div>
+                  <div className="w-px h-4 bg-white/20" />
+                  <div className="flex items-center gap-2">
+                    <IdCard className="w-4 h-4 text-teal-light" />
+                    <span className="text-sm text-white/80">{voter.national_id}</span>
+                  </div>
+                </div>
+              )}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-white/80 hover:text-white hover:bg-white/10"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
+            </div>
           </div>
-          <h1 className="text-2xl font-display font-bold text-foreground mb-4">
-            {error}
-          </h1>
-          <p className="text-muted-foreground mb-8">
-            Please check back later or contact an administrator.
-          </p>
-          <Button variant="navy" size="lg" className="w-full" onClick={() => navigate('/')}>
-            Return to Home
-          </Button>
-        </motion.div>
+        </header>
+
+        <main className="container mx-auto py-8 px-6 flex items-center justify-center min-h-[calc(100vh-80px)]">
+          {/* Mobile Voter Info */}
+          {voter && (
+            <div className="sm:hidden fixed top-20 left-6 right-6 p-4 bg-teal/10 border border-teal/30 rounded-xl z-40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal/20 rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-teal" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">{voter.full_name}</p>
+                  <p className="text-sm text-muted-foreground">ID: {voter.national_id}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <motion.div
+            className="max-w-md w-full glass-card rounded-3xl p-10 text-center"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <div className="w-24 h-24 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-14 h-14 text-warning" />
+            </div>
+            <h1 className="text-2xl font-display font-bold text-foreground mb-4">
+              {error}
+            </h1>
+            <p className="text-muted-foreground mb-8">
+              Please check back later or contact an administrator.
+            </p>
+            <Button variant="navy" size="lg" className="w-full" onClick={handleLogout}>
+              Logout
+            </Button>
+          </motion.div>
+        </main>
       </div>
     );
   }
