@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Shield, Users, Vote, CheckCircle, Camera, Lock, BarChart3 } from "lucide-react";
+import { Shield, Users, Vote, CheckCircle, Camera, Lock, BarChart3, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -105,20 +105,32 @@ const LandingPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
             >
-              <Button variant="hero" size="xl" onClick={() => navigate('/vote')}>
-                <Camera className="w-5 h-5 mr-2" />
-                Start Voting
+              <Button variant="hero" size="xl" onClick={() => navigate('/register')}>
+                <UserPlus className="w-5 h-5 mr-2" />
+                Register to Vote
               </Button>
-              <Button variant="heroOutline" size="xl" onClick={() => navigate('/admin/login')}>
-                <Users className="w-5 h-5 mr-2" />
-                Admin Access
+              <Button variant="heroOutline" size="xl" onClick={() => navigate('/vote')}>
+                <Camera className="w-5 h-5 mr-2" />
+                Already Registered? Vote Now
+              </Button>
+            </motion.div>
+
+            <motion.div
+              className="mt-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+            >
+              <Button variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10" onClick={() => navigate('/admin/login')}>
+                <Users className="w-4 h-4 mr-2" />
+                Admin Portal
               </Button>
             </motion.div>
           </div>
 
           {/* Stats */}
           <motion.div
-            className="grid grid-cols-3 gap-8 max-w-3xl mx-auto mt-20"
+            className="grid grid-cols-3 gap-8 max-w-3xl mx-auto mt-16"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
@@ -241,15 +253,21 @@ const LandingPage = () => {
             <div className="relative z-10">
               <CheckCircle className="w-16 h-16 text-teal-light mx-auto mb-6" />
               <h2 className="text-3xl md:text-4xl font-display font-bold text-white mb-4">
-                Ready to Cast Your Vote?
+                Ready to Get Started?
               </h2>
               <p className="text-white/70 max-w-xl mx-auto mb-8">
-                Join thousands of voters who trust SecureVote for fair and transparent elections.
+                Register once with your face, then vote securely in any election.
               </p>
-              <Button variant="hero" size="xl" onClick={() => navigate('/vote')}>
-                <Camera className="w-5 h-5 mr-2" />
-                Begin Face Verification
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Button variant="hero" size="xl" onClick={() => navigate('/register')}>
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Register Now
+                </Button>
+                <Button variant="heroOutline" size="xl" onClick={() => navigate('/vote')}>
+                  <Camera className="w-5 h-5 mr-2" />
+                  Begin Face Verification
+                </Button>
+              </div>
             </div>
           </motion.div>
         </div>
