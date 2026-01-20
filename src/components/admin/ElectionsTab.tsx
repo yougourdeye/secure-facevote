@@ -98,9 +98,14 @@ const ElectionsTab = ({ elections, onActivate, onDelete }: ElectionsTabProps) =>
                       {election.status}
                     </span>
                     {election.status === "draft" && (
-                      <Button variant="outline" size="sm" onClick={() => onActivate(election.id)}>
-                        Activate
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/elections/${election.id}/edit`)}>
+                          <Edit className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => onActivate(election.id)}>
+                          Activate
+                        </Button>
+                      </>
                     )}
                     <Button variant="ghost" size="icon" onClick={() => onDelete(election.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
