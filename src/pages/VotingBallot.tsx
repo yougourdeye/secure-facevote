@@ -84,6 +84,14 @@ const VotingBallot = () => {
       }
 
       const electionData = electionsData[0];
+      
+      // Check if election has ended
+      if (new Date(electionData.end_time) < new Date()) {
+        setError("This election has ended. Voting is no longer available.");
+        setLoading(false);
+        return;
+      }
+
       setElection(electionData);
 
       // Get candidates for this election
