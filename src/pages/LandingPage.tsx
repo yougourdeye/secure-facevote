@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { Shield, Users, Vote, CheckCircle, Camera, Lock, BarChart3, UserPlus } from "lucide-react";
+import { Shield, Users, Vote, CheckCircle, Camera, Lock, BarChart3, UserPlus, FileText, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -276,15 +276,40 @@ const LandingPage = () => {
       {/* Footer */}
       <footer className="bg-navy-dark text-white/60 py-12 px-6">
         <div className="container mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/10 rounded-xl">
                 <Vote className="w-6 h-6 text-teal-light" />
               </div>
               <span className="text-lg font-display font-semibold text-white">SecureVote</span>
             </div>
+            
+            {/* Research Documents */}
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <span className="text-sm text-white/40">Research Documents:</span>
+              <div className="flex items-center gap-3">
+                <Link to="/research-report">
+                  <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Research Report
+                  </Button>
+                </Link>
+                <Link to="/defense-presentation">
+                  <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10">
+                    <Presentation className="w-4 h-4 mr-2" />
+                    Defense Slides
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+          
+          <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm">
               © 2024 SecureVote. Secure Face Recognition Voting System.
+            </p>
+            <p className="text-xs text-white/40">
+              Master's Thesis Project | Kigali Independent University ULK
             </p>
           </div>
         </div>
