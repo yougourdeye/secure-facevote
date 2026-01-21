@@ -13,6 +13,7 @@ import CreateElection from "./pages/CreateElection";
 import EditElection from "./pages/EditElection";
 import VoterManagement from "./pages/VoterManagement";
 import ResearchReport from "./pages/ResearchReport";
+import DefensePresentation from "./pages/DefensePresentation";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import NotFound from "./pages/NotFound";
 
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/vote" element={<VoterVerification />} />
           <Route path="/vote/ballot" element={<VotingBallot />} />
           <Route path="/research-report" element={<ResearchReport />} />
+          <Route path="/defense-presentation" element={<DefensePresentation />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
