@@ -12,6 +12,7 @@ import VotingBallot from "./pages/VotingBallot";
 import CreateElection from "./pages/CreateElection";
 import EditElection from "./pages/EditElection";
 import VoterManagement from "./pages/VoterManagement";
+import ResearchReport from "./pages/ResearchReport";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import NotFound from "./pages/NotFound";
 
@@ -49,6 +50,7 @@ const App = () => (
           } />
           <Route path="/vote" element={<VoterVerification />} />
           <Route path="/vote/ballot" element={<VotingBallot />} />
+          <Route path="/research-report" element={<ResearchReport />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
