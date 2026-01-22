@@ -5,7 +5,7 @@ import { ArrowLeft, Download, Loader2, Presentation, ChevronLeft, ChevronRight }
 import { Link } from "react-router-dom";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
-
+import ProjectAudioNarration from "@/components/ProjectAudioNarration";
 interface Slide {
   title: string;
   subtitle?: string;
@@ -570,6 +570,11 @@ const DefensePresentation = () => {
               </div>
             </button>
           ))}
+        </div>
+
+        {/* Audio Narration Component */}
+        <div className="mt-8">
+          <ProjectAudioNarration />
         </div>
 
         <div className="mt-4 flex justify-center">
