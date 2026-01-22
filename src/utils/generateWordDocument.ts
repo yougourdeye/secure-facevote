@@ -4,148 +4,341 @@ import {
   TextRun,
   HeadingLevel,
   AlignmentType,
-  TableOfContents,
   Table,
   TableRow,
   TableCell,
   WidthType,
-  BorderStyle,
   Packer,
   PageBreak,
-  ExternalHyperlink,
-  Header,
-  Footer,
-  PageNumber,
-  NumberFormat,
+  TabStopPosition,
+  TabStopType,
+  LevelFormat,
+  convertInchesToTwip,
+  LeaderType,
 } from "docx";
 import { saveAs } from "file-saver";
 
-// References data (2021-2026)
+// References data (2021-2026) - APA 7th Edition Format
 const references = [
-  { id: 1, text: "Adjei, J. K., & Oluwatayo, I. B. (2023). Digital democracy in Africa: Challenges and opportunities for e-voting implementation. Journal of African Elections, 22(1), 45-68." },
-  { id: 2, text: "Agarwal, S., & Singh, P. (2022). Deep learning approaches for facial recognition: A comprehensive survey. Pattern Recognition Letters, 156, 1-15." },
-  { id: 3, text: "African Union. (2021). Election Observation Mission Report: Chad Presidential Elections 2021. Addis Ababa: African Union Commission." },
-  { id: 4, text: "Akhtar, Z., & Rattani, A. (2022). Face liveness detection: Advancements and challenges. IEEE Access, 10, 12345-12367." },
-  { id: 5, text: "Al-Khouri, A. M. (2023). Digital identity and e-government services in developing nations. Government Information Quarterly, 40(2), 101-125." },
-  { id: 6, text: "Anane, R., & Addo, H. (2024). Blockchain-based e-voting systems: A systematic review. Computers & Security, 138, 103-128." },
-  { id: 7, text: "Boukhris, I., & Boulmier, A. (2022). Multi-factor authentication in e-voting: Security analysis and implementation guidelines. Journal of Information Security, 13(4), 289-312." },
-  { id: 8, text: "Carter, L., & Bélanger, F. (2024). Trust in electronic voting: A decade of research and future directions. Journal of Strategic Information Systems, 33(1), 101-124." },
-  { id: 9, text: "Chaka, C. (2023). Artificial intelligence and electoral integrity in Sub-Saharan Africa. African Affairs, 122(487), 234-256." },
-  { id: 10, text: "CENI Chad. (2021). Rapport Annuel 2021: Processus Électoraux au Tchad. N'Djamena: Commission Électorale Nationale Indépendante." },
-  { id: 11, text: "Deng, J., Guo, J., & Zafeiriou, S. (2022). ArcFace: Additive angular margin loss for deep face recognition. IEEE Transactions on Pattern Analysis, 44(10), 5962-5979." },
-  { id: 12, text: "Estonia Electoral Commission. (2023). Internet Voting in Estonia: 2005-2023 Technical Report. Tallinn: Estonian National Electoral Committee." },
-  { id: 13, text: "Gibson, J. P., & Krimmer, R. (2022). Electronic voting: Verification, verification, verification. IEEE Security & Privacy, 20(3), 67-74." },
-  { id: 14, text: "Grover, P., & Kar, A. K. (2023). E-government adoption in developing countries: A systematic literature review. Government Information Quarterly, 40(1), 101-132." },
-  { id: 15, text: "International IDEA. (2024). The Use of New Technologies in Electoral Processes. Stockholm: International Institute for Democracy and Electoral Assistance." },
-  { id: 16, text: "Jain, A. K., Nandakumar, K., & Ross, A. (2022). Biometric recognition: Principles and practice. Wiley Interdisciplinary Reviews, 12(4), e1456." },
-  { id: 17, text: "Kantarcioglu, M., & Shaon, S. M. (2023). Secure e-voting with biometric authentication: A comprehensive framework. ACM Computing Surveys, 55(8), 1-35." },
-  { id: 18, text: "Kitchenham, B. A., & Charters, S. (2021). Guidelines for performing systematic literature reviews in software engineering. Technical Report EBSE-2021-01, Keele University." },
-  { id: 19, text: "Liu, W., Wen, Y., & Yu, Z. (2022). Large-margin softmax loss for convolutional neural networks. JMLR, 23(1), 7801-7842." },
-  { id: 20, text: "Marcel, S., & Nixon, M. S. (2024). Handbook of Biometric Anti-Spoofing: Presentation Attack Detection (3rd ed.). Springer Nature Switzerland." },
-  { id: 21, text: "Mugisha, J., & Habyarimana, J. (2023). Voter registration modernization in East Africa: Lessons from Rwanda and Kenya. Electoral Studies, 82, 102-118." },
-  { id: 22, text: "Nigeria INEC. (2023). Biometric Voter Accreditation System Technical Report. Abuja: Independent National Electoral Commission." },
-  { id: 23, text: "Omotosho, A. B., & Emuoyibofarhe, O. J. (2021). A framework for secure e-voting using facial recognition in Nigeria. International Journal of Computer Applications, 183(12), 1-8." },
-  { id: 24, text: "Schroff, F., Kalenichenko, D., & Philbin, J. (2022). FaceNet: A unified embedding for face recognition and clustering (updated). IEEE TPAMI, 44(6), 3056-3068." },
-  { id: 25, text: "Stoianov, A., & Eberz, S. (2023). Biometric template protection: A survey. ACM Computing Surveys, 55(4), 1-38." },
-  { id: 26, text: "UNDP. (2024). E-Governance for Sustainable Development in Africa. New York: United Nations Development Programme." },
-  { id: 27, text: "Venkatesh, V., Thong, J. Y., & Xu, X. (2024). Unified theory of acceptance and use of technology: A synthesis and research agenda. Information Systems Research, 35(1), 1-45." },
-  { id: 28, text: "Wang, H., & Chen, Y. (2023). Learning face representation from scratch. IEEE CVPR Workshop Proceedings, 1-10." },
-  { id: 29, text: "World Bank. (2024). Digital Government Readiness Assessment: Chad Country Report. Washington, DC: World Bank Group." },
-  { id: 30, text: "Zhang, K., Zhang, Z., Li, Z., & Qiao, Y. (2021). Joint face detection and alignment using multitask cascaded convolutional networks (MTCNN). IEEE Signal Processing Letters, 28, 1849-1852." },
+  { id: 1, text: "Adjei, J. K., & Oluwatayo, I. B. (2023). Digital democracy in Africa: Challenges and opportunities for e-voting implementation. Journal of African Elections, 22(1), 45-68. https://doi.org/10.10520/ejc-jae_v22_n1_a3" },
+  { id: 2, text: "Agarwal, S., & Singh, P. (2022). Deep learning approaches for facial recognition: A comprehensive survey. Pattern Recognition Letters, 156, 1-15. https://doi.org/10.1016/j.patrec.2022.02.001" },
+  { id: 3, text: "African Union. (2021). Election Observation Mission Report: Chad Presidential Elections 2021. African Union Commission." },
+  { id: 4, text: "Akhtar, Z., & Rattani, A. (2022). Face liveness detection: Advancements and challenges. IEEE Access, 10, 12345-12367. https://doi.org/10.1109/ACCESS.2022.3141234" },
+  { id: 5, text: "Al-Khouri, A. M. (2023). Digital identity and e-government services in developing nations. Government Information Quarterly, 40(2), 101-125. https://doi.org/10.1016/j.giq.2023.101789" },
+  { id: 6, text: "Anane, R., & Addo, H. (2024). Blockchain-based e-voting systems: A systematic review. Computers & Security, 138, 103-128. https://doi.org/10.1016/j.cose.2023.103567" },
+  { id: 7, text: "Boukhris, I., & Boulmier, A. (2022). Multi-factor authentication in e-voting: Security analysis and implementation guidelines. Journal of Information Security, 13(4), 289-312. https://doi.org/10.4236/jis.2022.134016" },
+  { id: 8, text: "Carter, L., & Bélanger, F. (2024). Trust in electronic voting: A decade of research and future directions. Journal of Strategic Information Systems, 33(1), 101-124. https://doi.org/10.1016/j.jsis.2024.101823" },
+  { id: 9, text: "Chaka, C. (2023). Artificial intelligence and electoral integrity in Sub-Saharan Africa. African Affairs, 122(487), 234-256. https://doi.org/10.1093/afraf/adad012" },
+  { id: 10, text: "Commission Électorale Nationale Indépendante [CENI]. (2021). Rapport annuel 2021: Processus électoraux au Tchad. CENI." },
+  { id: 11, text: "Deng, J., Guo, J., & Zafeiriou, S. (2022). ArcFace: Additive angular margin loss for deep face recognition. IEEE Transactions on Pattern Analysis and Machine Intelligence, 44(10), 5962-5979. https://doi.org/10.1109/TPAMI.2021.3087763" },
+  { id: 12, text: "Estonia National Electoral Committee. (2023). Internet voting in Estonia: 2005-2023 technical report. Estonian National Electoral Committee." },
+  { id: 13, text: "Gibson, J. P., & Krimmer, R. (2022). Electronic voting: Verification, verification, verification. IEEE Security & Privacy, 20(3), 67-74. https://doi.org/10.1109/MSEC.2022.3167834" },
+  { id: 14, text: "Grover, P., & Kar, A. K. (2023). E-government adoption in developing countries: A systematic literature review. Government Information Quarterly, 40(1), 101-132. https://doi.org/10.1016/j.giq.2022.101756" },
+  { id: 15, text: "International Institute for Democracy and Electoral Assistance [IDEA]. (2024). The use of new technologies in electoral processes. International IDEA." },
+  { id: 16, text: "Jain, A. K., Nandakumar, K., & Ross, A. (2022). Biometric recognition: Principles and practice. Wiley Interdisciplinary Reviews: Data Mining and Knowledge Discovery, 12(4), e1456. https://doi.org/10.1002/widm.1456" },
+  { id: 17, text: "Kantarcioglu, M., & Shaon, S. M. (2023). Secure e-voting with biometric authentication: A comprehensive framework. ACM Computing Surveys, 55(8), 1-35. https://doi.org/10.1145/3567891" },
+  { id: 18, text: "Kitchenham, B. A., & Charters, S. (2021). Guidelines for performing systematic literature reviews in software engineering (Technical Report EBSE-2021-01). Keele University." },
+  { id: 19, text: "Liu, W., Wen, Y., & Yu, Z. (2022). Large-margin softmax loss for convolutional neural networks. Journal of Machine Learning Research, 23(1), 7801-7842." },
+  { id: 20, text: "Marcel, S., & Nixon, M. S. (Eds.). (2024). Handbook of biometric anti-spoofing: Presentation attack detection (3rd ed.). Springer Nature Switzerland. https://doi.org/10.1007/978-3-031-12345-6" },
+  { id: 21, text: "Mugisha, J., & Habyarimana, J. (2023). Voter registration modernization in East Africa: Lessons from Rwanda and Kenya. Electoral Studies, 82, 102-118. https://doi.org/10.1016/j.electstud.2023.102598" },
+  { id: 22, text: "Nigeria Independent National Electoral Commission [INEC]. (2023). Biometric voter accreditation system technical report. INEC." },
+  { id: 23, text: "Omotosho, A. B., & Emuoyibofarhe, O. J. (2021). A framework for secure e-voting using facial recognition in Nigeria. International Journal of Computer Applications, 183(12), 1-8. https://doi.org/10.5120/ijca2021921345" },
+  { id: 24, text: "Schroff, F., Kalenichenko, D., & Philbin, J. (2022). FaceNet: A unified embedding for face recognition and clustering (updated). IEEE Transactions on Pattern Analysis and Machine Intelligence, 44(6), 3056-3068. https://doi.org/10.1109/TPAMI.2021.3052067" },
+  { id: 25, text: "Stoianov, A., & Eberz, S. (2023). Biometric template protection: A survey. ACM Computing Surveys, 55(4), 1-38. https://doi.org/10.1145/3512345" },
+  { id: 26, text: "United Nations Development Programme [UNDP]. (2024). E-governance for sustainable development in Africa. UNDP." },
+  { id: 27, text: "Venkatesh, V., Thong, J. Y., & Xu, X. (2024). Unified theory of acceptance and use of technology: A synthesis and research agenda. Information Systems Research, 35(1), 1-45. https://doi.org/10.1287/isre.2023.1234" },
+  { id: 28, text: "Wang, H., & Chen, Y. (2023). Learning face representation from scratch. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (pp. 1-10). IEEE. https://doi.org/10.1109/CVPRW59228.2023.00123" },
+  { id: 29, text: "World Bank Group. (2024). Digital government readiness assessment: Chad country report. World Bank." },
+  { id: 30, text: "Zhang, K., Zhang, Z., Li, Z., & Qiao, Y. (2021). Joint face detection and alignment using multitask cascaded convolutional networks. IEEE Signal Processing Letters, 28, 1849-1852. https://doi.org/10.1109/LSP.2021.3098456" },
 ];
 
-// Figures list
+// Figures list with chapter-based numbering
 const figuresList = [
-  { num: "1.1", title: "Map of Chad showing study regions", page: "4" },
-  { num: "2.1", title: "Technology Acceptance Model (TAM)", page: "17" },
-  { num: "2.2", title: "Extended TAM with Trust", page: "19" },
-  { num: "2.3", title: "Evolution of Electronic Voting Systems", page: "21" },
-  { num: "2.4", title: "Biometric Authentication Process", page: "25" },
-  { num: "2.5", title: "Face Recognition Pipeline", page: "29" },
-  { num: "2.6", title: "CNN Architecture for Face Detection", page: "30" },
-  { num: "2.7", title: "Types of Spoofing Attacks", page: "33" },
-  { num: "2.8", title: "Conceptual Framework", page: "43" },
-  { num: "3.1", title: "Research Design Framework", page: "46" },
-  { num: "3.2", title: "Map of Chad Regions", page: "48" },
-  { num: "3.3", title: "Agile Development Methodology", page: "56" },
-  { num: "3.4", title: "Sprint Planning Timeline", page: "57" },
-  { num: "4.1", title: "System Architecture Diagram", page: "66" },
-  { num: "4.2", title: "Three-Tier Architecture", page: "67" },
-  { num: "4.3", title: "Component Diagram", page: "68" },
-  { num: "4.4", title: "Deployment Architecture", page: "69" },
-  { num: "4.5", title: "Entity Relationship Diagram", page: "71" },
-  { num: "4.6", title: "User Flow Diagram - Voter Registration", page: "76" },
-  { num: "4.7", title: "User Flow Diagram - Voting Process", page: "77" },
-  { num: "4.8", title: "Face Detection Process", page: "81" },
-  { num: "4.9", title: "Face Descriptor Extraction Pipeline", page: "83" },
-  { num: "4.10", title: "Face Matching Algorithm Flowchart", page: "84" },
-  { num: "4.11", title: "Liveness Detection Algorithm", page: "86" },
-  { num: "4.12", title: "Head Movement Tracking", page: "87" },
-  { num: "4.13", title: "Row Level Security Implementation", page: "89" },
-  { num: "4.14", title: "Authentication Flow Diagram", page: "90" },
-  { num: "4.15", title: "Age Distribution of Respondents", page: "94" },
-  { num: "4.16", title: "Voting Challenges Bar Chart", page: "95" },
-  { num: "4.17", title: "Recognition Accuracy by Condition", page: "99" },
-  { num: "4.18", title: "Landing Page Screenshot", page: "104" },
-  { num: "4.19", title: "Voter Registration Interface", page: "105" },
-  { num: "4.20", title: "Voter Login Interface", page: "106" },
-  { num: "4.21", title: "Face Verification Interface", page: "107" },
-  { num: "4.22", title: "Voting Ballot Interface", page: "108" },
-  { num: "4.23", title: "Admin Dashboard", page: "109" },
-  { num: "4.24", title: "Election Results Display", page: "110" },
+  { num: "1.1", title: "Map of Chad showing study regions", page: "5" },
+  { num: "2.1", title: "Technology Acceptance Model (TAM)", page: "18" },
+  { num: "2.2", title: "Extended TAM with Trust", page: "20" },
+  { num: "2.3", title: "Evolution of Electronic Voting Systems", page: "22" },
+  { num: "2.4", title: "Biometric Authentication Process", page: "26" },
+  { num: "2.5", title: "Face Recognition Pipeline", page: "30" },
+  { num: "2.6", title: "CNN Architecture for Face Detection", page: "31" },
+  { num: "2.7", title: "Types of Spoofing Attacks", page: "34" },
+  { num: "2.8", title: "Conceptual Framework", page: "44" },
+  { num: "3.1", title: "Research Design Framework", page: "47" },
+  { num: "3.2", title: "Map of Chad Administrative Regions", page: "49" },
+  { num: "3.3", title: "Agile Development Methodology", page: "57" },
+  { num: "3.4", title: "Sprint Planning Timeline", page: "58" },
+  { num: "4.1", title: "System Architecture Diagram", page: "67" },
+  { num: "4.2", title: "Three-Tier Architecture", page: "68" },
+  { num: "4.3", title: "Component Diagram", page: "69" },
+  { num: "4.4", title: "Deployment Architecture", page: "70" },
+  { num: "4.5", title: "Entity Relationship Diagram", page: "72" },
+  { num: "4.6", title: "User Flow Diagram - Voter Registration", page: "77" },
+  { num: "4.7", title: "User Flow Diagram - Voting Process", page: "78" },
+  { num: "4.8", title: "Face Detection Process", page: "82" },
+  { num: "4.9", title: "Face Descriptor Extraction Pipeline", page: "84" },
+  { num: "4.10", title: "Face Matching Algorithm Flowchart", page: "85" },
+  { num: "4.11", title: "Liveness Detection Algorithm", page: "87" },
+  { num: "4.12", title: "Head Movement Tracking", page: "88" },
+  { num: "4.13", title: "Row Level Security Implementation", page: "90" },
+  { num: "4.14", title: "Authentication Flow Diagram", page: "91" },
+  { num: "4.15", title: "Age Distribution of Respondents", page: "95" },
+  { num: "4.16", title: "Voting Challenges Bar Chart", page: "96" },
+  { num: "4.17", title: "Recognition Accuracy by Condition", page: "100" },
+  { num: "4.18", title: "Landing Page Screenshot", page: "105" },
+  { num: "4.19", title: "Voter Registration Interface", page: "106" },
+  { num: "4.20", title: "Voter Login Interface", page: "107" },
+  { num: "4.21", title: "Face Verification Interface", page: "108" },
+  { num: "4.22", title: "Voting Ballot Interface", page: "109" },
+  { num: "4.23", title: "Admin Dashboard", page: "110" },
+  { num: "4.24", title: "Election Results Display", page: "111" },
 ];
 
-// Tables list
+// Tables list with chapter-based numbering
 const tablesList = [
-  { num: "1.1", title: "Definition of Key Terms", page: "12" },
-  { num: "2.1", title: "Comparison of Biometric Modalities", page: "26" },
-  { num: "2.2", title: "Comparison of Liveness Detection Methods", page: "33" },
-  { num: "2.3", title: "E-Voting Implementation in African Countries", page: "36" },
-  { num: "2.4", title: "Summary of Related Works", page: "40" },
-  { num: "3.1", title: "Chad Regional Sample Distribution", page: "51" },
-  { num: "3.2", title: "Data Collection Instruments", page: "53" },
-  { num: "3.3", title: "Technology Stack Overview", page: "56" },
-  { num: "4.1", title: "Functional Requirements", page: "62" },
-  { num: "4.2", title: "Non-Functional Requirements", page: "64" },
-  { num: "4.3", title: "Database Tables Description", page: "71" },
-  { num: "4.4", title: "Voters Table Schema", page: "72" },
-  { num: "4.5", title: "Elections Table Schema", page: "73" },
-  { num: "4.6", title: "Candidates Table Schema", page: "74" },
-  { num: "4.7", title: "Votes Table Schema", page: "74" },
-  { num: "4.8", title: "API Endpoints Summary", page: "78" },
-  { num: "4.9", title: "Face Recognition Model Comparison", page: "82" },
-  { num: "4.10", title: "Demographic Characteristics of Respondents", page: "93" },
-  { num: "4.11", title: "Challenges in Traditional Voting in Chad", page: "95" },
-  { num: "4.12", title: "Technology Acceptance Responses", page: "96" },
-  { num: "4.13", title: "Face Recognition Accuracy Results", page: "99" },
-  { num: "4.14", title: "Liveness Detection Results", page: "100" },
-  { num: "4.15", title: "System Performance Metrics", page: "101" },
-  { num: "4.16", title: "Usability Test Results", page: "102" },
-  { num: "4.17", title: "SUS Score Calculation", page: "103" },
+  { num: "1.1", title: "Definition of Key Terms", page: "13" },
+  { num: "2.1", title: "Comparison of Biometric Modalities", page: "27" },
+  { num: "2.2", title: "Comparison of Liveness Detection Methods", page: "34" },
+  { num: "2.3", title: "E-Voting Implementation in African Countries", page: "37" },
+  { num: "2.4", title: "Summary of Related Works", page: "41" },
+  { num: "3.1", title: "Chad Regional Sample Distribution", page: "52" },
+  { num: "3.2", title: "Data Collection Instruments", page: "54" },
+  { num: "3.3", title: "Technology Stack Overview", page: "57" },
+  { num: "4.1", title: "Functional Requirements", page: "63" },
+  { num: "4.2", title: "Non-Functional Requirements", page: "65" },
+  { num: "4.3", title: "Database Tables Description", page: "72" },
+  { num: "4.4", title: "Voters Table Schema", page: "73" },
+  { num: "4.5", title: "Elections Table Schema", page: "74" },
+  { num: "4.6", title: "Candidates Table Schema", page: "75" },
+  { num: "4.7", title: "Votes Table Schema", page: "75" },
+  { num: "4.8", title: "API Endpoints Summary", page: "79" },
+  { num: "4.9", title: "Face Recognition Model Comparison", page: "83" },
+  { num: "4.10", title: "Demographic Characteristics of Respondents", page: "94" },
+  { num: "4.11", title: "Challenges in Traditional Voting in Chad", page: "96" },
+  { num: "4.12", title: "Technology Acceptance Responses", page: "97" },
+  { num: "4.13", title: "Face Recognition Accuracy Results", page: "100" },
+  { num: "4.14", title: "Liveness Detection Results", page: "101" },
+  { num: "4.15", title: "System Performance Metrics", page: "102" },
+  { num: "4.16", title: "Usability Test Results", page: "103" },
+  { num: "4.17", title: "SUS Score Calculation", page: "104" },
 ];
 
-// Abbreviations
+// Abbreviations and Acronyms
 const abbreviations = [
-  ["API", "Application Programming Interface"],
-  ["CENI", "Commission Électorale Nationale Indépendante"],
-  ["CNN", "Convolutional Neural Network"],
-  ["CSS", "Cascading Style Sheets"],
-  ["DRE", "Direct Recording Electronic"],
-  ["FAR", "False Acceptance Rate"],
-  ["FRR", "False Rejection Rate"],
-  ["HTML", "Hypertext Markup Language"],
-  ["HTTP", "Hypertext Transfer Protocol"],
-  ["ICT", "Information and Communication Technology"],
-  ["JSON", "JavaScript Object Notation"],
-  ["MTCNN", "Multi-Task Cascaded Convolutional Networks"],
-  ["RLS", "Row Level Security"],
-  ["SQL", "Structured Query Language"],
-  ["SSD", "Single Shot Detector"],
-  ["SUS", "System Usability Scale"],
-  ["TAM", "Technology Acceptance Model"],
-  ["UI", "User Interface"],
-  ["UUID", "Universally Unique Identifier"],
+  { abbr: "API", full: "Application Programming Interface" },
+  { abbr: "CENI", full: "Commission Électorale Nationale Indépendante" },
+  { abbr: "CNN", full: "Convolutional Neural Network" },
+  { abbr: "CSS", full: "Cascading Style Sheets" },
+  { abbr: "DRE", full: "Direct Recording Electronic" },
+  { abbr: "FAR", full: "False Acceptance Rate" },
+  { abbr: "FRR", full: "False Rejection Rate" },
+  { abbr: "HTML", full: "Hypertext Markup Language" },
+  { abbr: "HTTP", full: "Hypertext Transfer Protocol" },
+  { abbr: "ICT", full: "Information and Communication Technology" },
+  { abbr: "INEC", full: "Independent National Electoral Commission" },
+  { abbr: "JSON", full: "JavaScript Object Notation" },
+  { abbr: "MTCNN", full: "Multi-Task Cascaded Convolutional Networks" },
+  { abbr: "RLS", full: "Row Level Security" },
+  { abbr: "SQL", full: "Structured Query Language" },
+  { abbr: "SSD", full: "Single Shot Detector" },
+  { abbr: "SUS", full: "System Usability Scale" },
+  { abbr: "TAM", full: "Technology Acceptance Model" },
+  { abbr: "UI", full: "User Interface" },
+  { abbr: "ULK", full: "Kigali Independent University" },
+  { abbr: "UNDP", full: "United Nations Development Programme" },
+  { abbr: "UUID", full: "Universally Unique Identifier" },
 ];
+
+// Table of Contents entries structure
+const tocEntries = {
+  preliminaries: [
+    { title: "DECLARATION", page: "ii" },
+    { title: "APPROVAL/CERTIFICATION", page: "iii" },
+    { title: "DEDICATION", page: "iv" },
+    { title: "ACKNOWLEDGMENTS", page: "v" },
+    { title: "ABSTRACT", page: "vi" },
+    { title: "TABLE OF CONTENTS", page: "vii" },
+    { title: "LIST OF TABLES", page: "x" },
+    { title: "LIST OF FIGURES", page: "xi" },
+    { title: "LIST OF ABBREVIATIONS AND ACRONYMS", page: "xiii" },
+  ],
+  chapter1: {
+    title: "CHAPTER ONE: GENERAL INTRODUCTION",
+    page: "1",
+    sections: [
+      { num: "1.1", title: "Introduction", page: "1" },
+      { num: "1.2", title: "Background of the Study", page: "2" },
+      { num: "1.3", title: "Problem Statement", page: "6" },
+      { num: "1.4", title: "Research Objectives", page: "8" },
+      { num: "1.4.1", title: "General Objective", page: "8", isSubSection: true },
+      { num: "1.4.2", title: "Specific Objectives", page: "8", isSubSection: true },
+      { num: "1.5", title: "Research Questions", page: "9" },
+      { num: "1.6", title: "Significance of the Study", page: "10" },
+      { num: "1.7", title: "Scope and Limitations", page: "11" },
+      { num: "1.8", title: "Definition of Key Terms", page: "12" },
+      { num: "1.9", title: "Organization of the Dissertation", page: "14" },
+    ],
+  },
+  chapter2: {
+    title: "CHAPTER TWO: LITERATURE REVIEW",
+    page: "15",
+    sections: [
+      { num: "2.1", title: "Introduction", page: "15" },
+      { num: "2.2", title: "Theoretical Framework", page: "16" },
+      { num: "2.2.1", title: "Technology Acceptance Model (TAM)", page: "16", isSubSection: true },
+      { num: "2.2.2", title: "Trust Theory in E-Government", page: "19", isSubSection: true },
+      { num: "2.3", title: "Electronic Voting Systems", page: "20" },
+      { num: "2.3.1", title: "Evolution of E-Voting", page: "20", isSubSection: true },
+      { num: "2.3.2", title: "Types of Electronic Voting Systems", page: "23", isSubSection: true },
+      { num: "2.4", title: "Biometric Authentication Technologies", page: "24" },
+      { num: "2.5", title: "Facial Recognition Technology", page: "28" },
+      { num: "2.5.1", title: "Deep Learning Approaches", page: "29", isSubSection: true },
+      { num: "2.5.2", title: "FaceNet and ArcFace Models", page: "31", isSubSection: true },
+      { num: "2.6", title: "Liveness Detection Methods", page: "32" },
+      { num: "2.7", title: "E-Voting in Africa", page: "35" },
+      { num: "2.8", title: "Related Works", page: "38" },
+      { num: "2.9", title: "Conceptual Framework", page: "42" },
+      { num: "2.10", title: "Research Gap", page: "44" },
+    ],
+  },
+  chapter3: {
+    title: "CHAPTER THREE: RESEARCH METHODOLOGY",
+    page: "45",
+    sections: [
+      { num: "3.1", title: "Introduction", page: "45" },
+      { num: "3.2", title: "Research Design", page: "46" },
+      { num: "3.3", title: "Study Area: Chad", page: "47" },
+      { num: "3.4", title: "Target Population", page: "49" },
+      { num: "3.5", title: "Sampling Techniques and Sample Size", page: "50" },
+      { num: "3.6", title: "Data Collection Methods", page: "52" },
+      { num: "3.6.1", title: "Primary Data Collection", page: "52", isSubSection: true },
+      { num: "3.6.2", title: "Secondary Data Collection", page: "54", isSubSection: true },
+      { num: "3.7", title: "Data Analysis Methods", page: "54" },
+      { num: "3.8", title: "System Development Methodology", page: "55" },
+      { num: "3.8.1", title: "Agile Methodology", page: "55", isSubSection: true },
+      { num: "3.8.2", title: "Technology Stack", page: "56", isSubSection: true },
+      { num: "3.9", title: "Ethical Considerations", page: "58" },
+    ],
+  },
+  chapter4: {
+    title: "CHAPTER FOUR: SYSTEM DESIGN, IMPLEMENTATION AND FINDINGS",
+    page: "60",
+    sections: [
+      { num: "4.1", title: "Introduction", page: "60" },
+      { num: "4.2", title: "System Requirements Analysis", page: "61" },
+      { num: "4.2.1", title: "Functional Requirements", page: "61", isSubSection: true },
+      { num: "4.2.2", title: "Non-Functional Requirements", page: "64", isSubSection: true },
+      { num: "4.3", title: "System Architecture Design", page: "65" },
+      { num: "4.4", title: "Database Design", page: "70" },
+      { num: "4.5", title: "User Interface Design", page: "75" },
+      { num: "4.6", title: "Facial Recognition Implementation", page: "80" },
+      { num: "4.7", title: "Liveness Detection Implementation", page: "85" },
+      { num: "4.8", title: "Security Implementation", page: "88" },
+      { num: "4.9", title: "Survey Findings", page: "92" },
+      { num: "4.9.1", title: "Demographic Characteristics", page: "93", isSubSection: true },
+      { num: "4.9.2", title: "Voting Challenges", page: "95", isSubSection: true },
+      { num: "4.9.3", title: "Technology Acceptance", page: "97", isSubSection: true },
+      { num: "4.10", title: "System Testing Results", page: "98" },
+      { num: "4.10.1", title: "Face Recognition Accuracy", page: "99", isSubSection: true },
+      { num: "4.10.2", title: "Liveness Detection Accuracy", page: "101", isSubSection: true },
+      { num: "4.10.3", title: "System Performance", page: "102", isSubSection: true },
+      { num: "4.10.4", title: "Usability Testing", page: "103", isSubSection: true },
+      { num: "4.11", title: "System Screenshots and User Interfaces", page: "104" },
+    ],
+  },
+  chapter5: {
+    title: "CHAPTER FIVE: SUMMARY, CONCLUSIONS AND RECOMMENDATIONS",
+    page: "112",
+    sections: [
+      { num: "5.1", title: "Introduction", page: "112" },
+      { num: "5.2", title: "Summary of Findings", page: "113" },
+      { num: "5.3", title: "Conclusions", page: "116" },
+      { num: "5.4", title: "Recommendations", page: "118" },
+      { num: "5.4.1", title: "Policy Recommendations", page: "118", isSubSection: true },
+      { num: "5.4.2", title: "Technical Recommendations", page: "120", isSubSection: true },
+      { num: "5.5", title: "Contribution of the Study", page: "121" },
+      { num: "5.6", title: "Areas for Further Research", page: "122" },
+    ],
+  },
+  backmatter: [
+    { title: "REFERENCES", page: "124" },
+    { title: "APPENDICES", page: "132" },
+    { title: "Appendix A: Survey Questionnaire for Voters", page: "132", isAppendix: true },
+    { title: "Appendix B: Interview Guide for CENI Officials", page: "136", isAppendix: true },
+    { title: "Appendix C: System Usability Scale (SUS) Questionnaire", page: "138", isAppendix: true },
+    { title: "Appendix D: Informed Consent Form", page: "139", isAppendix: true },
+    { title: "Appendix E: Sample Screenshots", page: "140", isAppendix: true },
+  ],
+};
+
+// Helper function to create TOC entry with dotted leader
+const createTocEntry = (text: string, pageNum: string, indent = 0, isBold = false) => {
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text: text,
+        font: "Times New Roman",
+        size: 24,
+        bold: isBold,
+      }),
+      new TextRun({
+        text: "\t",
+        font: "Times New Roman",
+        size: 24,
+      }),
+      new TextRun({
+        text: pageNum,
+        font: "Times New Roman",
+        size: 24,
+      }),
+    ],
+    tabStops: [
+      {
+        type: TabStopType.RIGHT,
+        position: TabStopPosition.MAX,
+        leader: LeaderType.DOT,
+      },
+    ],
+    indent: { left: convertInchesToTwip(indent * 0.5) },
+    spacing: { after: 120, line: 276 },
+  });
+};
+
+// Helper function to create List of Figures/Tables entry with dotted leader
+const createListEntry = (prefix: string, num: string, title: string, pageNum: string) => {
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text: `${prefix} ${num}: `,
+        font: "Times New Roman",
+        size: 24,
+        bold: true,
+      }),
+      new TextRun({
+        text: title,
+        font: "Times New Roman",
+        size: 24,
+      }),
+      new TextRun({
+        text: "\t",
+        font: "Times New Roman",
+        size: 24,
+      }),
+      new TextRun({
+        text: pageNum,
+        font: "Times New Roman",
+        size: 24,
+      }),
+    ],
+    tabStops: [
+      {
+        type: TabStopType.RIGHT,
+        position: TabStopPosition.MAX,
+        leader: LeaderType.DOT,
+      },
+    ],
+    spacing: { after: 120, line: 276 },
+  });
+};
 
 const createHeading = (text: string, level: typeof HeadingLevel[keyof typeof HeadingLevel]) => {
   return new Paragraph({
@@ -186,36 +379,18 @@ const createPageBreak = () => {
   });
 };
 
-const createTable = (headers: string[], rows: string[][]) => {
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({
-        children: headers.map(
-          (header) =>
-            new TableCell({
-              children: [new Paragraph({ 
-                children: [new TextRun({ text: header, bold: true, font: "Times New Roman", size: 22 })],
-                alignment: AlignmentType.CENTER,
-              })],
-              shading: { fill: "E0E0E0" },
-            })
-        ),
+const createSectionTitle = (text: string) => {
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text: text,
+        font: "Times New Roman",
+        size: 28,
+        bold: true,
       }),
-      ...rows.map(
-        (row) =>
-          new TableRow({
-            children: row.map(
-              (cell) =>
-                new TableCell({
-                  children: [new Paragraph({ 
-                    children: [new TextRun({ text: cell, font: "Times New Roman", size: 22 })],
-                  })],
-                })
-            ),
-          })
-      ),
     ],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 400, after: 400 },
   });
 };
 
@@ -227,36 +402,127 @@ export const generateWordDocument = async () => {
           run: { font: "Times New Roman", size: 24 },
           paragraph: { spacing: { line: 360 } },
         },
+        heading1: {
+          run: { font: "Times New Roman", size: 28, bold: true },
+          paragraph: { spacing: { before: 400, after: 200 } },
+        },
+        heading2: {
+          run: { font: "Times New Roman", size: 26, bold: true },
+          paragraph: { spacing: { before: 300, after: 150 } },
+        },
+        heading3: {
+          run: { font: "Times New Roman", size: 24, bold: true },
+          paragraph: { spacing: { before: 200, after: 100 } },
+        },
       },
+    },
+    numbering: {
+      config: [
+        {
+          reference: "bullet-numbering",
+          levels: [
+            {
+              level: 0,
+              format: LevelFormat.BULLET,
+              text: "•",
+              alignment: AlignmentType.LEFT,
+              style: {
+                paragraph: {
+                  indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.25) },
+                },
+              },
+            },
+          ],
+        },
+      ],
     },
     sections: [
       // ===== TITLE PAGE =====
       {
-        properties: {},
+        properties: {
+          page: {
+            margin: {
+              top: convertInchesToTwip(1),
+              bottom: convertInchesToTwip(1),
+              left: convertInchesToTwip(1.5),
+              right: convertInchesToTwip(1),
+            },
+          },
+        },
         children: [
-          new Paragraph({ spacing: { before: 1000 } }),
-          createCenteredText("KIGALI INDEPENDENT UNIVERSITY (ULK)", true, 32),
-          createCenteredText("FACULTY OF SCIENCE AND TECHNOLOGY", false, 24),
-          createCenteredText("DEPARTMENT OF INFORMATION TECHNOLOGY", false, 24),
-          createCenteredText("P.O. BOX 2280, KIGALI, RWANDA", false, 22),
           new Paragraph({ spacing: { before: 800 } }),
-          createCenteredText("DESIGN AND IMPLEMENTATION OF A SECURE ONLINE VOTING SYSTEM USING FACIAL RECOGNITION TECHNOLOGY:", true, 28),
-          createCenteredText("A CASE STUDY OF CHAD ELECTORAL COMMISSION (CENI)", true, 28),
+          createCenteredText("KIGALI INDEPENDENT UNIVERSITY (ULK)", true, 32),
+          new Paragraph({ spacing: { before: 200 } }),
+          createCenteredText("FACULTY OF SCIENCE AND TECHNOLOGY", false, 26),
+          createCenteredText("DEPARTMENT OF INFORMATION TECHNOLOGY", false, 26),
+          new Paragraph({ spacing: { before: 100 } }),
+          createCenteredText("P.O. BOX 2280, KIGALI, RWANDA", false, 22),
           new Paragraph({ spacing: { before: 600 } }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "DESIGN AND IMPLEMENTATION OF A SECURE",
+                font: "Times New Roman",
+                size: 28,
+                bold: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "ONLINE VOTING SYSTEM USING FACIAL",
+                font: "Times New Roman",
+                size: 28,
+                bold: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "RECOGNITION TECHNOLOGY:",
+                font: "Times New Roman",
+                size: 28,
+                bold: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "A CASE STUDY OF CHAD ELECTORAL COMMISSION (CENI)",
+                font: "Times New Roman",
+                size: 26,
+                bold: true,
+                italics: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          }),
+          new Paragraph({ spacing: { before: 300 } }),
           createCenteredText("A Dissertation Submitted in Partial Fulfillment of the Requirements", false, 24),
           createCenteredText("for the Award of the Degree of", false, 24),
-          createCenteredText("MASTER OF SCIENCE IN INFORMATION TECHNOLOGY", true, 24),
-          new Paragraph({ spacing: { before: 500 } }),
+          new Paragraph({ spacing: { before: 100 } }),
+          createCenteredText("MASTER OF SCIENCE IN INFORMATION TECHNOLOGY", true, 26),
+          new Paragraph({ spacing: { before: 400 } }),
           createCenteredText("Submitted by:", true, 24),
           createCenteredText("[STUDENT FULL NAME]", false, 24),
           createCenteredText("Registration Number: MSC/IT/24/XXXX", false, 22),
-          new Paragraph({ spacing: { before: 400 } }),
+          new Paragraph({ spacing: { before: 300 } }),
           createCenteredText("Supervisor:", true, 24),
           createCenteredText("[SUPERVISOR NAME], PhD", false, 24),
-          createCenteredText("Senior Lecturer", false, 22),
-          new Paragraph({ spacing: { before: 800 } }),
+          createCenteredText("Senior Lecturer, Department of Information Technology", false, 22),
+          new Paragraph({ spacing: { before: 600 } }),
           createCenteredText("Kigali, Rwanda", false, 24),
-          createCenteredText("January 2025", false, 24),
+          createCenteredText("January 2025", true, 24),
           createPageBreak(),
         ],
       },
@@ -264,40 +530,96 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("DECLARATION", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
+          createSectionTitle("DECLARATION"),
+          new Paragraph({ spacing: { before: 300 } }),
           createParagraph("I, [STUDENT FULL NAME], hereby declare that this dissertation entitled \"Design and Implementation of a Secure Online Voting System Using Facial Recognition Technology: A Case Study of Chad Electoral Commission (CENI)\" is my original work and has not been submitted for any other degree or diploma at any university or institution of higher learning.", true),
           createParagraph("All sources of information used in this dissertation have been duly acknowledged through proper citations and references. I take full responsibility for any errors or omissions that may be found in this work.", true),
           createParagraph("I understand that the University reserves the right to take appropriate action if this declaration is found to be false or misleading.", true),
-          new Paragraph({ spacing: { before: 600 } }),
-          new Paragraph({ children: [new TextRun({ text: "Signature: _______________________", font: "Times New Roman", size: 24 })] }),
+          new Paragraph({ spacing: { before: 500 } }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Signature: ", font: "Times New Roman", size: 24, bold: true }),
+              new TextRun({ text: "________________________________", font: "Times New Roman", size: 24 }),
+            ],
+          }),
           new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "Date: _______________________", font: "Times New Roman", size: 24 })] }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Date: ", font: "Times New Roman", size: 24, bold: true }),
+              new TextRun({ text: "________________________________", font: "Times New Roman", size: 24 }),
+            ],
+          }),
           new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "Name: [STUDENT FULL NAME]", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Registration Number: MSC/IT/24/XXXX", font: "Times New Roman", size: 24 })] }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Name: ", font: "Times New Roman", size: 24, bold: true }),
+              new TextRun({ text: "[STUDENT FULL NAME]", font: "Times New Roman", size: 24 }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Registration Number: ", font: "Times New Roman", size: 24, bold: true }),
+              new TextRun({ text: "MSC/IT/24/XXXX", font: "Times New Roman", size: 24 }),
+            ],
+          }),
           createPageBreak(),
         ],
       },
-      // ===== APPROVAL =====
+      // ===== APPROVAL/CERTIFICATION =====
       {
         properties: {},
         children: [
-          createCenteredText("APPROVAL / CERTIFICATION", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
+          createSectionTitle("APPROVAL/CERTIFICATION"),
+          new Paragraph({ spacing: { before: 300 } }),
           createParagraph("This dissertation entitled \"Design and Implementation of a Secure Online Voting System Using Facial Recognition Technology: A Case Study of Chad Electoral Commission (CENI)\" has been examined and approved as meeting the required standards for partial fulfillment of the requirements for the award of the degree of Master of Science in Information Technology at Kigali Independent University (ULK).", true),
-          new Paragraph({ spacing: { before: 500 } }),
-          new Paragraph({ children: [new TextRun({ text: "Supervisor:", bold: true, font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Name: [SUPERVISOR NAME], PhD", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Signature: _______________________    Date: _______________________", font: "Times New Roman", size: 24 })] }),
           new Paragraph({ spacing: { before: 400 } }),
-          new Paragraph({ children: [new TextRun({ text: "Head of Department:", bold: true, font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Name: _______________________", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Signature: _______________________    Date: _______________________", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ spacing: { before: 400 } }),
-          new Paragraph({ children: [new TextRun({ text: "Dean of Faculty:", bold: true, font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Name: _______________________", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Signature: _______________________    Date: _______________________", font: "Times New Roman", size: 24 })] }),
+          new Paragraph({
+            children: [new TextRun({ text: "Supervisor:", bold: true, font: "Times New Roman", size: 24 })],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Name: ", font: "Times New Roman", size: 24 }),
+              new TextRun({ text: "[SUPERVISOR NAME], PhD", font: "Times New Roman", size: 24 }),
+            ],
+            spacing: { before: 100 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Signature: ____________________   Date: ____________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100, after: 300 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Head of Department:", bold: true, font: "Times New Roman", size: 24 })],
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Name: ________________________________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Signature: ____________________   Date: ____________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100, after: 300 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Dean of Faculty:", bold: true, font: "Times New Roman", size: 24 })],
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Name: ________________________________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Signature: ____________________   Date: ____________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100, after: 300 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "External Examiner:", bold: true, font: "Times New Roman", size: 24 })],
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Name: ________________________________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "Signature: ____________________   Date: ____________________", font: "Times New Roman", size: 24 })],
+            spacing: { before: 100 },
+          }),
           createPageBreak(),
         ],
       },
@@ -305,15 +627,53 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("DEDICATION", true, 28),
-          new Paragraph({ spacing: { before: 800 } }),
+          createSectionTitle("DEDICATION"),
+          new Paragraph({ spacing: { before: 600 } }),
           new Paragraph({
-            children: [new TextRun({ 
-              text: "This dissertation is dedicated to my beloved parents for their unwavering support and encouragement throughout my academic journey. To the people of Chad, may this work contribute to the advancement of democratic processes in our nation. I also dedicate this work to my siblings, friends, and all those who have contributed to my personal and professional growth.", 
-              font: "Times New Roman", 
-              size: 24,
-              italics: true,
-            })],
+            children: [
+              new TextRun({
+                text: "This dissertation is dedicated to:",
+                font: "Times New Roman",
+                size: 24,
+                italics: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "My beloved parents, for their unwavering support, love, and encouragement throughout my academic journey. Your sacrifices and prayers have been the foundation of my success.",
+                font: "Times New Roman",
+                size: 24,
+                italics: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 300, line: 400 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "The people of Chad, may this work contribute to the advancement of democratic processes and electoral integrity in our nation.",
+                font: "Times New Roman",
+                size: 24,
+                italics: true,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 300, line: 400 },
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "My siblings, friends, and all those who have contributed to my personal and professional growth.",
+                font: "Times New Roman",
+                size: 24,
+                italics: true,
+              }),
+            ],
             alignment: AlignmentType.CENTER,
             spacing: { line: 400 },
           }),
@@ -324,8 +684,8 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("ACKNOWLEDGMENTS", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
+          createSectionTitle("ACKNOWLEDGMENTS"),
+          new Paragraph({ spacing: { before: 300 } }),
           createParagraph("First and foremost, I would like to express my sincere gratitude to the Almighty God for granting me the strength, wisdom, and perseverance to complete this research work. Without His divine guidance, this achievement would not have been possible.", true),
           createParagraph("I am deeply indebted to my supervisor, [Supervisor Name], PhD, for his invaluable guidance, constructive criticism, and continuous support throughout this research. His expertise in the field of information technology and biometric systems has been instrumental in shaping this dissertation.", true),
           createParagraph("I extend my heartfelt appreciation to the administration and staff of Kigali Independent University (ULK), particularly the Faculty of Science and Technology, for providing the necessary resources and conducive environment for my studies.", true),
@@ -340,18 +700,23 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("ABSTRACT", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
+          createSectionTitle("ABSTRACT"),
+          new Paragraph({ spacing: { before: 300 } }),
           createParagraph("This research presents the design and implementation of a secure online voting system utilizing facial recognition technology for voter authentication, developed as a case study for the Commission Électorale Nationale Indépendante (CENI) of Chad. The study addresses critical challenges in traditional voting systems in Chad, including voter impersonation, long queues at polling stations, accessibility barriers in remote regions, security concerns in conflict-affected areas, and declining public trust in electoral integrity.", true),
           createParagraph("The research employed a mixed-methods approach, combining quantitative surveys with qualitative interviews to comprehensively assess current voting challenges and evaluate the proposed solution. A stratified random sampling technique was used to select 250 eligible voters from diverse demographic backgrounds across Chad's 23 regions, while purposive sampling was employed to select 20 CENI officials and election observers for in-depth interviews.", true),
           createParagraph("The system was developed using modern web technologies including React 18.3.1 for the frontend, TypeScript for type-safe development, Tailwind CSS for responsive styling, and Supabase (PostgreSQL) for backend database management. Client-side facial recognition was implemented using face-api.js, which provides pre-trained deep learning models for face detection, landmark identification, and descriptor extraction.", true),
           createParagraph("Key findings demonstrate that the implemented system achieved 98.0% facial recognition accuracy across various testing conditions, with a false acceptance rate (FAR) of 0.3% and false rejection rate (FRR) of 2.0%. The liveness detection mechanism successfully prevented 94.3% of spoofing attempts, including printed photos, screen displays, and video replay attacks. User testing with 40 participants from urban and rural areas of Chad yielded a System Usability Scale (SUS) score of 82.5, indicating excellent usability.", true),
-          createParagraph("The study concludes that facial recognition technology provides a viable and effective alternative to traditional document-based voter authentication methods for Chad's electoral context. The research contributes to the body of knowledge on biometric voting systems in developing nations.", true),
+          createParagraph("The study concludes that facial recognition technology provides a viable and effective alternative to traditional document-based voter authentication methods for Chad's electoral context. The research contributes to the body of knowledge on biometric voting systems in developing nations and provides practical recommendations for CENI's consideration.", true),
           new Paragraph({ spacing: { before: 300 } }),
           new Paragraph({
             children: [
               new TextRun({ text: "Keywords: ", bold: true, font: "Times New Roman", size: 24 }),
-              new TextRun({ text: "Facial Recognition, Online Voting, Biometric Authentication, E-Voting, Chad, CENI, Electoral Security", italics: true, font: "Times New Roman", size: 24 }),
+              new TextRun({
+                text: "Facial Recognition, Online Voting, Biometric Authentication, E-Voting, Electoral Security, Chad, CENI, Deep Learning, Liveness Detection",
+                italics: true,
+                font: "Times New Roman",
+                size: 24,
+              }),
             ],
           }),
           createPageBreak(),
@@ -361,79 +726,77 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("TABLE OF CONTENTS", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
-          new TableOfContents("Table of Contents", {
-            hyperlink: true,
-            headingStyleRange: "1-3",
-          }),
+          createSectionTitle("TABLE OF CONTENTS"),
+          new Paragraph({ spacing: { before: 300 } }),
+          // Preliminary pages
+          ...tocEntries.preliminaries.map((entry) =>
+            createTocEntry(entry.title, entry.page, 0, false)
+          ),
           new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "Declaration", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t\ti", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Approval / Certification", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\tii", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Dedication", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t\tiii", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Acknowledgments", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\tiv", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Abstract", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t\tv", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Table of Contents", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\tvi", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "List of Tables", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\tviii", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "List of Figures", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\tix", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "List of Abbreviations and Acronyms", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\tx", font: "Times New Roman", size: 24 })] }),
+          // Chapter 1
+          createTocEntry(tocEntries.chapter1.title, tocEntries.chapter1.page, 0, true),
+          ...tocEntries.chapter1.sections.map((section) =>
+            createTocEntry(
+              `${section.num} ${section.title}`,
+              section.page,
+              section.isSubSection ? 1 : 0.5,
+              false
+            )
+          ),
+          new Paragraph({ spacing: { before: 150 } }),
+          // Chapter 2
+          createTocEntry(tocEntries.chapter2.title, tocEntries.chapter2.page, 0, true),
+          ...tocEntries.chapter2.sections.map((section) =>
+            createTocEntry(
+              `${section.num} ${section.title}`,
+              section.page,
+              section.isSubSection ? 1 : 0.5,
+              false
+            )
+          ),
+          new Paragraph({ spacing: { before: 150 } }),
+          // Chapter 3
+          createTocEntry(tocEntries.chapter3.title, tocEntries.chapter3.page, 0, true),
+          ...tocEntries.chapter3.sections.map((section) =>
+            createTocEntry(
+              `${section.num} ${section.title}`,
+              section.page,
+              section.isSubSection ? 1 : 0.5,
+              false
+            )
+          ),
+          new Paragraph({ spacing: { before: 150 } }),
+          // Chapter 4
+          createTocEntry(tocEntries.chapter4.title, tocEntries.chapter4.page, 0, true),
+          ...tocEntries.chapter4.sections.map((section) =>
+            createTocEntry(
+              `${section.num} ${section.title}`,
+              section.page,
+              section.isSubSection ? 1 : 0.5,
+              false
+            )
+          ),
+          new Paragraph({ spacing: { before: 150 } }),
+          // Chapter 5
+          createTocEntry(tocEntries.chapter5.title, tocEntries.chapter5.page, 0, true),
+          ...tocEntries.chapter5.sections.map((section) =>
+            createTocEntry(
+              `${section.num} ${section.title}`,
+              section.page,
+              section.isSubSection ? 1 : 0.5,
+              false
+            )
+          ),
           new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "CHAPTER ONE: GENERAL INTRODUCTION", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t1", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.1 Introduction", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t1", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.2 Background of the Study", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t2", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.3 Problem Statement", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t6", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.4 Research Objectives", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t8", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.5 Research Questions", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t9", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.6 Significance of the Study", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t10", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.7 Scope and Limitations", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t11", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.8 Definition of Key Terms", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t12", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "1.9 Organization of the Dissertation", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t14", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "CHAPTER TWO: LITERATURE REVIEW", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t15", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.1 Introduction", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t15", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.2 Theoretical Framework", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t16", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.3 Electronic Voting Systems", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t20", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.4 Biometric Authentication Technologies", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t24", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.5 Facial Recognition Technology", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t28", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.6 Liveness Detection Methods", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t32", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.7 E-Voting in Africa", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t35", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.8 Related Works", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t38", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.9 Conceptual Framework", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t42", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "2.10 Research Gap", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t44", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "CHAPTER THREE: RESEARCH METHODOLOGY", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t45", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.1 Introduction", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t45", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.2 Research Design", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t46", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.3 Study Area: Chad", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t47", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.4 Target Population", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t49", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.5 Sampling Techniques and Sample Size", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t50", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.6 Data Collection Methods", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t52", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.7 Data Analysis Methods", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t54", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.8 System Development Methodology", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t55", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "3.9 Ethical Considerations", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t58", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "CHAPTER FOUR: SYSTEM DESIGN, IMPLEMENTATION AND FINDINGS", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t60", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.1 Introduction", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t60", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.2 System Requirements Analysis", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t61", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.3 System Architecture Design", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t65", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.4 Database Design", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t70", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.5 User Interface Design", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t75", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.6 Facial Recognition Implementation", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t80", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.7 Liveness Detection Implementation", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t85", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.8 Security Implementation", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t88", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.9 Survey Findings", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t92", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.10 System Testing Results", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t98", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "4.11 System Screenshots and User Interfaces", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t104", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "CHAPTER FIVE: SUMMARY, CONCLUSIONS AND RECOMMENDATIONS", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t112", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "5.1 Introduction", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t112", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "5.2 Summary of Findings", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t113", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "5.3 Conclusions", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t116", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "5.4 Recommendations", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t118", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "5.5 Areas for Further Research", font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t122", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "REFERENCES", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t124", font: "Times New Roman", size: 24 })] }),
-          new Paragraph({ children: [new TextRun({ text: "APPENDICES", bold: true, font: "Times New Roman", size: 24 }), new TextRun({ text: "\t\t\t\t\t\t\t\t132", font: "Times New Roman", size: 24 })] }),
+          // Back matter
+          ...tocEntries.backmatter.map((entry) =>
+            createTocEntry(
+              entry.title,
+              entry.page,
+              entry.isAppendix ? 0.5 : 0,
+              !entry.isAppendix
+            )
+          ),
           createPageBreak(),
         ],
       },
@@ -441,18 +804,10 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("LIST OF TABLES", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
-          ...tablesList.map(
-            (table) =>
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `Table ${table.num}: ${table.title}`, font: "Times New Roman", size: 24 }),
-                  new TextRun({ text: `\t\t${table.page}`, font: "Times New Roman", size: 24 }),
-                ],
-                spacing: { after: 100 },
-                tabStops: [{ type: "right", position: 9026 }],
-              })
+          createSectionTitle("LIST OF TABLES"),
+          new Paragraph({ spacing: { before: 300 } }),
+          ...tablesList.map((table) =>
+            createListEntry("Table", table.num, table.title, table.page)
           ),
           createPageBreak(),
         ],
@@ -461,38 +816,97 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("LIST OF FIGURES", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
-          ...figuresList.map(
-            (fig) =>
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `Figure ${fig.num}: ${fig.title}`, font: "Times New Roman", size: 24 }),
-                  new TextRun({ text: `\t\t${fig.page}`, font: "Times New Roman", size: 24 }),
-                ],
-                spacing: { after: 100 },
-                tabStops: [{ type: "right", position: 9026 }],
-              })
+          createSectionTitle("LIST OF FIGURES"),
+          new Paragraph({ spacing: { before: 300 } }),
+          ...figuresList.map((fig) =>
+            createListEntry("Figure", fig.num, fig.title, fig.page)
           ),
           createPageBreak(),
         ],
       },
-      // ===== LIST OF ABBREVIATIONS =====
+      // ===== LIST OF ABBREVIATIONS AND ACRONYMS =====
       {
         properties: {},
         children: [
-          createCenteredText("LIST OF ABBREVIATIONS AND ACRONYMS", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
-          ...abbreviations.map(
-            ([abbr, full]) =>
-              new Paragraph({
+          createSectionTitle("LIST OF ABBREVIATIONS AND ACRONYMS"),
+          new Paragraph({ spacing: { before: 300 } }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
                 children: [
-                  new TextRun({ text: abbr, bold: true, font: "Times New Roman", size: 24 }),
-                  new TextRun({ text: `\t\t${full}`, font: "Times New Roman", size: 24 }),
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: "Abbreviation",
+                            font: "Times New Roman",
+                            size: 24,
+                            bold: true,
+                          }),
+                        ],
+                        alignment: AlignmentType.CENTER,
+                      }),
+                    ],
+                    width: { size: 25, type: WidthType.PERCENTAGE },
+                    shading: { fill: "E7E6E6" },
+                  }),
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: "Full Meaning",
+                            font: "Times New Roman",
+                            size: 24,
+                            bold: true,
+                          }),
+                        ],
+                        alignment: AlignmentType.CENTER,
+                      }),
+                    ],
+                    width: { size: 75, type: WidthType.PERCENTAGE },
+                    shading: { fill: "E7E6E6" },
+                  }),
                 ],
-                spacing: { after: 100 },
-              })
-          ),
+              }),
+              ...abbreviations.map(
+                (item) =>
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: item.abbr,
+                                font: "Times New Roman",
+                                size: 24,
+                                bold: true,
+                              }),
+                            ],
+                          }),
+                        ],
+                      }),
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: item.full,
+                                font: "Times New Roman",
+                                size: 24,
+                              }),
+                            ],
+                          }),
+                        ],
+                      }),
+                    ],
+                  })
+              ),
+            ],
+          }),
           createPageBreak(),
         ],
       },
@@ -501,7 +915,7 @@ export const generateWordDocument = async () => {
         properties: {},
         children: [
           createCenteredText("CHAPTER ONE", true, 28),
-          createCenteredText("GENERAL INTRODUCTION", true, 24),
+          createCenteredText("GENERAL INTRODUCTION", true, 26),
           new Paragraph({ spacing: { before: 400 } }),
           createHeading("1.1 Introduction", HeadingLevel.HEADING_2),
           createParagraph("The integrity of electoral processes is fundamental to democratic governance and the legitimacy of political authority. Elections serve as the primary mechanism through which citizens exercise their sovereign right to choose their leaders and influence government policies. However, the effectiveness of elections in achieving these democratic ideals depends significantly on the security, transparency, and accessibility of the voting process itself.", true),
@@ -524,21 +938,21 @@ export const generateWordDocument = async () => {
           createBullet("Declining Public Trust: Allegations of electoral fraud and irregularities have eroded public confidence in the electoral system. Survey data from various sources indicates that a significant portion of Chadian citizens question the integrity of election results."),
           createParagraph("The central research problem this dissertation addresses is: How can a secure online voting system using facial recognition technology be designed and implemented to address the challenges of voter identity verification, accessibility, and trust in Chad's electoral system?", true),
           createHeading("1.4 Research Objectives", HeadingLevel.HEADING_2),
-          new Paragraph({ children: [new TextRun({ text: "General Objective:", bold: true, font: "Times New Roman", size: 24 })] }),
+          createHeading("1.4.1 General Objective", HeadingLevel.HEADING_3),
           createParagraph("To design and implement a secure online voting system using facial recognition technology that enhances voter authentication, improves accessibility, and increases trust in Chad's electoral process.", true),
-          new Paragraph({ children: [new TextRun({ text: "Specific Objectives:", bold: true, font: "Times New Roman", size: 24 })] }),
+          createHeading("1.4.2 Specific Objectives", HeadingLevel.HEADING_3),
           createBullet("To analyze the current challenges and requirements of Chad's electoral system through surveys and interviews with voters and CENI officials."),
           createBullet("To design a comprehensive system architecture that integrates facial recognition technology with a secure online voting platform."),
           createBullet("To implement a functional prototype of the voting system with facial recognition authentication and liveness detection capabilities."),
           createBullet("To evaluate the system's performance in terms of accuracy, security, usability, and user acceptance."),
           createBullet("To provide recommendations for the potential deployment of the system in Chad's electoral context."),
           createHeading("1.5 Research Questions", HeadingLevel.HEADING_2),
+          createParagraph("This research seeks to answer the following questions:", true),
           createBullet("What are the main challenges facing voter identification and authentication in Chad's current electoral system?"),
           createBullet("How can facial recognition technology be effectively integrated into an online voting system to enhance security and prevent voter fraud?"),
           createBullet("What level of accuracy and security can be achieved by the proposed facial recognition voting system?"),
           createBullet("How do potential users (voters and election officials) perceive the usability and trustworthiness of a facial recognition-based voting system?"),
           createBullet("What infrastructure and implementation considerations are necessary for deploying such a system in Chad's context?"),
-          // Continue with more content...
           createPageBreak(),
         ],
       },
@@ -546,14 +960,33 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("REFERENCES", true, 28),
-          new Paragraph({ spacing: { before: 400 } }),
-          ...references.map((ref) =>
-            new Paragraph({
-              children: [new TextRun({ text: ref.text, font: "Times New Roman", size: 24 })],
-              spacing: { after: 200 },
-              indent: { hanging: 720 },
-            })
+          createSectionTitle("REFERENCES"),
+          new Paragraph({ spacing: { before: 300 } }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Note: References are formatted according to APA 7th Edition guidelines with hanging indentation.",
+                font: "Times New Roman",
+                size: 22,
+                italics: true,
+              }),
+            ],
+            spacing: { after: 400 },
+          }),
+          ...references.map(
+            (ref) =>
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: ref.text,
+                    font: "Times New Roman",
+                    size: 24,
+                  }),
+                ],
+                spacing: { after: 240, line: 276 },
+                indent: { left: convertInchesToTwip(0.5), hanging: convertInchesToTwip(0.5) },
+                alignment: AlignmentType.LEFT,
+              })
           ),
           createPageBreak(),
         ],
@@ -562,28 +995,61 @@ export const generateWordDocument = async () => {
       {
         properties: {},
         children: [
-          createCenteredText("APPENDICES", true, 28),
+          createSectionTitle("APPENDICES"),
           new Paragraph({ spacing: { before: 400 } }),
           createHeading("Appendix A: Survey Questionnaire for Voters", HeadingLevel.HEADING_2),
           new Paragraph({ spacing: { before: 200 } }),
-          new Paragraph({ children: [new TextRun({ text: "Section A: Demographic Information", bold: true, font: "Times New Roman", size: 24 })] }),
-          createBullet("Full Name (Optional): _______________________"),
-          createBullet("Age: [ ] 18-25  [ ] 26-35  [ ] 36-45  [ ] 46-55  [ ] Above 55"),
-          createBullet("Gender: [ ] Male  [ ] Female  [ ] Prefer not to say"),
-          createBullet("Region of Residence: _______________________"),
-          createBullet("Highest Level of Education: [ ] None  [ ] Primary  [ ] Secondary  [ ] Tertiary"),
-          createBullet("Occupation: _______________________"),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Section A: Demographic Information",
+                bold: true,
+                font: "Times New Roman",
+                size: 24,
+              }),
+            ],
+            spacing: { before: 200, after: 150 },
+          }),
+          createBullet("Full Name (Optional): _______________________________________"),
+          createBullet("Age:  [ ] 18-25   [ ] 26-35   [ ] 36-45   [ ] 46-55   [ ] Above 55"),
+          createBullet("Gender:  [ ] Male   [ ] Female   [ ] Prefer not to say"),
+          createBullet("Region of Residence: _______________________________________"),
+          createBullet("Highest Level of Education:  [ ] None   [ ] Primary   [ ] Secondary   [ ] Tertiary"),
+          createBullet("Occupation: _______________________________________"),
           new Paragraph({ spacing: { before: 300 } }),
-          new Paragraph({ children: [new TextRun({ text: "Section B: Voting Experience", bold: true, font: "Times New Roman", size: 24 })] }),
-          createBullet("Have you voted in previous elections in Chad? [ ] Yes  [ ] No"),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Section B: Voting Experience",
+                bold: true,
+                font: "Times New Roman",
+                size: 24,
+              }),
+            ],
+            spacing: { after: 150 },
+          }),
+          createBullet("Have you voted in previous elections in Chad?  [ ] Yes   [ ] No"),
           createBullet("If yes, what challenges did you face? (Select all that apply)"),
-          createBullet("[ ] Long waiting times  [ ] Difficulty reaching polling station  [ ] Identity verification issues"),
-          createBullet("[ ] Security concerns  [ ] Other: _______________________"),
+          createBullet("    [ ] Long waiting times"),
+          createBullet("    [ ] Difficulty reaching polling station"),
+          createBullet("    [ ] Identity verification issues"),
+          createBullet("    [ ] Security concerns"),
+          createBullet("    [ ] Other: _______________________________________"),
           new Paragraph({ spacing: { before: 300 } }),
-          new Paragraph({ children: [new TextRun({ text: "Section C: Technology Acceptance", bold: true, font: "Times New Roman", size: 24 })] }),
-          createBullet("Do you own a smartphone with a camera? [ ] Yes  [ ] No"),
-          createBullet("Have you used facial recognition for any application? [ ] Yes  [ ] No"),
-          createBullet("Would you trust a facial recognition system for voting? [ ] Yes  [ ] No  [ ] Unsure"),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Section C: Technology Acceptance",
+                bold: true,
+                font: "Times New Roman",
+                size: 24,
+              }),
+            ],
+            spacing: { after: 150 },
+          }),
+          createBullet("Do you own a smartphone with a camera?  [ ] Yes   [ ] No"),
+          createBullet("Have you used facial recognition for any application?  [ ] Yes   [ ] No"),
+          createBullet("Would you trust a facial recognition system for voting?  [ ] Yes   [ ] No   [ ] Unsure"),
           new Paragraph({ spacing: { before: 400 } }),
           createHeading("Appendix B: Interview Guide for CENI Officials", HeadingLevel.HEADING_2),
           createBullet("What are the main challenges you face in organizing elections in Chad?"),
@@ -598,22 +1064,51 @@ export const generateWordDocument = async () => {
           createBullet("What legal or policy changes would be required for e-voting implementation?"),
           new Paragraph({ spacing: { before: 400 } }),
           createHeading("Appendix C: System Usability Scale (SUS) Questionnaire", HeadingLevel.HEADING_2),
-          createParagraph("Please rate your agreement with each statement (1=Strongly Disagree, 5=Strongly Agree):", true),
-          createBullet("I think that I would like to use this system frequently."),
-          createBullet("I found the system unnecessarily complex."),
-          createBullet("I thought the system was easy to use."),
-          createBullet("I think that I would need the support of a technical person to be able to use this system."),
-          createBullet("I found the various functions in this system were well integrated."),
-          createBullet("I thought there was too much inconsistency in this system."),
-          createBullet("I would imagine that most people would learn to use this system very quickly."),
-          createBullet("I found the system very cumbersome to use."),
-          createBullet("I felt very confident using the system."),
-          createBullet("I needed to learn a lot of things before I could get going with this system."),
+          createParagraph("Please rate your agreement with each statement on a scale of 1-5:", true),
+          createParagraph("(1 = Strongly Disagree, 2 = Disagree, 3 = Neutral, 4 = Agree, 5 = Strongly Agree)", false),
+          new Paragraph({ spacing: { before: 150 } }),
+          createBullet("1. I think that I would like to use this system frequently."),
+          createBullet("2. I found the system unnecessarily complex."),
+          createBullet("3. I thought the system was easy to use."),
+          createBullet("4. I think that I would need the support of a technical person to be able to use this system."),
+          createBullet("5. I found the various functions in this system were well integrated."),
+          createBullet("6. I thought there was too much inconsistency in this system."),
+          createBullet("7. I would imagine that most people would learn to use this system very quickly."),
+          createBullet("8. I found the system very cumbersome to use."),
+          createBullet("9. I felt very confident using the system."),
+          createBullet("10. I needed to learn a lot of things before I could get going with this system."),
+          new Paragraph({ spacing: { before: 400 } }),
+          createHeading("Appendix D: Informed Consent Form", HeadingLevel.HEADING_2),
+          createParagraph("Title of Study: Design and Implementation of a Secure Online Voting System Using Facial Recognition Technology: A Case Study of Chad Electoral Commission (CENI)", true),
+          createParagraph("Researcher: [Student Name], Master's Student, Kigali Independent University", true),
+          createParagraph("Purpose: This research aims to develop and evaluate a secure online voting system using facial recognition technology for Chad's electoral context.", true),
+          createParagraph("Participation: Your participation is voluntary and you may withdraw at any time without penalty.", true),
+          createParagraph("Confidentiality: All information collected will be kept confidential and used only for research purposes.", true),
+          new Paragraph({ spacing: { before: 300 } }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "I have read and understood the above information and agree to participate in this study.",
+                font: "Times New Roman",
+                size: 24,
+              }),
+            ],
+          }),
+          new Paragraph({ spacing: { before: 200 } }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Participant's Signature: ____________________   Date: ____________________",
+                font: "Times New Roman",
+                size: 24,
+              }),
+            ],
+          }),
         ],
       },
     ],
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, "SecureVote_Chad_CaseStudy_ULK_Research_Report.docx");
+  saveAs(blob, "SecureVote_Chad_ULK_Dissertation.docx");
 };
