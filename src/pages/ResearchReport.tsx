@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, FileText, ArrowLeft, Loader2 } from "lucide-react";
+import { Download, FileText, ArrowLeft, Loader2, FileTextIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
+import { generateWordDocument } from "@/utils/generateWordDocument";
 
 // Import screenshots
 import landingPageImg from "@/assets/screenshots/landing-page.png";
@@ -18,6 +19,7 @@ import electionResultsImg from "@/assets/screenshots/election-results.png";
 
 const ResearchReport = () => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingWord, setIsGeneratingWord] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const generatePDF = async () => {
@@ -1624,6 +1626,19 @@ const ResearchReport = () => {
     }
   };
 
+  const handleGenerateWord = async () => {
+    setIsGeneratingWord(true);
+    try {
+      await generateWordDocument();
+      toast.success("Word document generated successfully!");
+    } catch (error) {
+      console.error("Error generating Word document:", error);
+      toast.error("Failed to generate Word document. Please try again.");
+    } finally {
+      setIsGeneratingWord(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 p-6">
       <div className="max-w-4xl mx-auto">
@@ -1634,23 +1649,42 @@ const ResearchReport = () => {
               Back to Home
             </Button>
           </Link>
-          <Button
-            onClick={generatePDF}
-            disabled={isGenerating}
-            className="bg-teal-600 hover:bg-teal-700"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating... {progress}%
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Download Full PDF (65+ pages)
-              </>
-            )}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleGenerateWord}
+              disabled={isGeneratingWord}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isGeneratingWord ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <FileTextIcon className="mr-2 h-4 w-4" />
+                  Download Word (.docx)
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={generatePDF}
+              disabled={isGenerating}
+              className="bg-teal-600 hover:bg-teal-700"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating... {progress}%
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF (65+ pages)
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <Card className="bg-white/95 backdrop-blur">
@@ -1668,7 +1702,7 @@ const ResearchReport = () => {
               Case Study: Commission Électorale Nationale Indépendante (CENI) du Tchad
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Université de N'Djamena • 65+ Pages • Full Academic Format
+              Kigali Independent University (ULK) • 65+ Pages • Full Academic Format
             </p>
           </CardHeader>
           <CardContent className="p-6">
