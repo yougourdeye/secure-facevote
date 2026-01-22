@@ -1,1 +1,10 @@
 project_id = "gtwtuzjhauvxxobkwifd"
+
+[functions.close-expired-elections]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.elevenlabs-tts-batch]
+verify_jwt = false
