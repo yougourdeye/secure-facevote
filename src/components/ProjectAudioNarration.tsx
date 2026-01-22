@@ -10,7 +10,8 @@ import {
   Volume2, 
   VolumeX,
   Loader2,
-  Headphones
+  Headphones,
+  Download
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +71,7 @@ const ProjectAudioNarration = () => {
   const [currentSection, setCurrentSection] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [audioCache, setAudioCache] = useState<Map<string, string>>(new Map());
@@ -187,6 +189,50 @@ const ProjectAudioNarration = () => {
     setIsMuted(!isMuted);
   };
 
+  const downloadFullAudio = async () => {
+    setIsDownloading(true);
+    toast.info("Generating full audio... This may take a few minutes.");
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts-batch`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ 
+            sections: narrationSections.map(s => ({ title: s.title, text: s.text }))
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      const url = URL.createObjectURL(audioBlob);
+      
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "SecureVote_Audio_Explanation.mp3";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Audio downloaded successfully!");
+    } catch (error) {
+      console.error("Error downloading audio:", error);
+      toast.error("Failed to generate audio. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -295,10 +341,31 @@ const ProjectAudioNarration = () => {
           </Button>
         </div>
 
-        {/* Section counter */}
-        <p className="text-center text-sm text-slate-400">
-          Section {currentSection + 1} of {narrationSections.length}
-        </p>
+        {/* Download button and section counter */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-400">
+            Section {currentSection + 1} of {narrationSections.length}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadFullAudio}
+            disabled={isDownloading}
+            className="border-teal-600 text-teal-400 hover:bg-teal-600 hover:text-white"
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Download Full MP3
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
